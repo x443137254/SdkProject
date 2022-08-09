@@ -1,0 +1,2 @@
+rootProject.name = "SdkProject"
+include ':ZXYW_SDK'
