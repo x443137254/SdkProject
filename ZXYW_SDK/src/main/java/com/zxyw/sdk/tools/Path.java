@@ -18,6 +18,9 @@ public final class Path {
     public static final String PHOTO = FTP_ROOT + File.separator + "photo";
     public static final String CAPTURE = FTP_ROOT + File.separator + "capture";
     public static final String RING = FTP_ROOT + File.separator + "ring";
+    public static final String LOGO = FTP_ROOT + File.separator + "logo";
+    public static final String LOGO2 = FTP_ROOT + File.separator + "logo2";
+    public static final String RS232_UPGRADE = FTP_ROOT + File.separator + "rs232_upgrade";
 
     /**
      * 创建各个目录
@@ -37,6 +40,9 @@ public final class Path {
         mkDir(new File(TEMP));
         mkDir(new File(WALLPAPER));
         mkDir(new File(RING));
+        mkDir(new File(LOGO));
+        mkDir(new File(LOGO2));
+        mkDir(new File(RS232_UPGRADE));
     }
 
     private static void mkDir(File file) {
