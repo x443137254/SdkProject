@@ -11,7 +11,7 @@ public class DesUtil {
 	 * 加密数据
 	 */
 	public static String encrypt(String message, String key) throws Exception {
-		Cipher cipher = Cipher.getInstance("DES/CBC/NoPadding");
+		Cipher cipher = Cipher.getInstance("DES/ECB/NoPadding");
 		DESKeySpec desKeySpec = new DESKeySpec(ByteUtil.hexStringToBytes(key));
 		SecretKeyFactory keyFactory = SecretKeyFactory.getInstance("DES");
 		SecretKey secretKey = keyFactory.generateSecret(desKeySpec);
@@ -23,7 +23,7 @@ public class DesUtil {
 	 * 解密数据
 	 */
 	public static String decrypt(String message, String key) throws Exception {
-		Cipher cipher = Cipher.getInstance("DES/CBC/NoPadding");
+		Cipher cipher = Cipher.getInstance("DES/ECB/NoPadding");
 		DESKeySpec desKeySpec = new DESKeySpec(ByteUtil.hexStringToBytes(key));
 		SecretKeyFactory keyFactory = SecretKeyFactory.getInstance("DES");
 		SecretKey secretKey = keyFactory.generateSecret(desKeySpec);

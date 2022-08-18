@@ -889,6 +889,7 @@ public class Utils {
     }
 
     public static String string2MD5(String inStr) {
+        if (TextUtils.isEmpty(inStr)) return "";
         MessageDigest md5;
         try {
             md5 = MessageDigest.getInstance("MD5");

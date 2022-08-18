@@ -1,65 +1,129 @@
 package com.zxyw.sdk.auth;
 
+import android.content.Context;
+import android.provider.Settings;
+import android.text.TextUtils;
+
+import com.baidu.idl.main.facesdk.FaceAuth;
+import com.zxyw.sdk.net.http.HttpUtil;
+import com.zxyw.sdk.speaker.Speaker;
+import com.zxyw.sdk.tools.Utils;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.LineNumberReader;
+import java.util.UUID;
 
 public class Auth {
-    private final String SN_PATH = "/sdcard/.zxyw/sn";
-    private final String AUTH_PATH = "/sdcard/.zxyw/auth";
 
-    private boolean auth = false;
+    private static boolean auth = false;
+    private final static String SP_NAME = "auth_cache";
+    private final static String KEY_SN = "SN";
+    private final static String KEY_LICENCE = "LICENCE";
+    private final static String KEY_UUID = "uuid";
 
-    public boolean isAuth() {
+    public static boolean isAuth() {
         return auth;
     }
 
-    public boolean backupSN(String sn) {
-        return AuthTools.saveFile(sn, SN_PATH);
+    public static void backupSN(final Context context, final String sn) {
+        context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE).edit().putString(KEY_SN, AESUtil.encode(sn)).apply();
     }
 
-    public String readSN() {
-        return AuthTools.readFile(SN_PATH);
+    public static String readSN(final Context context) {
+        return AESUtil.decode(context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE).getString(KEY_SN, null));
     }
 
-    public void setAuth(boolean auth) {
-        this.auth = auth;
-    }
-
-    public String readAuth() {
-        return AuthTools.readFile(AUTH_PATH);
-    }
-
-    public boolean authBackup(String s) {
-        return AuthTools.saveFile(s, AUTH_PATH);
-    }
-
-    public boolean checkAuth(String sn) {
-        String s = AuthTools.readFile(AUTH_PATH);
-        if (s == null || s.length() == 0) {
-            auth = false;
-            return false;
-        }
-        String a = a();
+    public static boolean checkAuth(final Context context, final String sn, final String url, final String key) {
+        if (context == null || sn == null) return false;
+        final String a = a();
         if (a == null) {
-            auth = false;
             return false;
         }
-        String b = a.substring(0,8);
-        b = b + a.substring(a.length() - 8);
-        String des;
-        try {
-            des = DesUtil.encrypt(sn, b);
-        } catch (Exception e) {
-            e.printStackTrace();
-            des = "";
+        final String licence = AESUtil.decode(context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE).getString(KEY_LICENCE, null));
+        if (licence != null) {
+            String b = a.substring(0, 8);
+            b = b + a.substring(a.length() - 8);
+            String des;
+            try {
+                des = DesUtil.encrypt(sn, b);
+            } catch (Exception e) {
+                e.printStackTrace();
+                des = "";
+            }
+            auth = licence.equals(des);
         }
-        auth = s.equals(des);
-        return auth;
+        if (auth) return true;
+        else if (!TextUtils.isEmpty(url)) {
+            String uuid = context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE).getString(KEY_UUID, null);
+            if (uuid == null) {
+                uuid = UUID.randomUUID().toString();
+                context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE).edit().putString(KEY_UUID, uuid).apply();
+            }
+            final JSONObject jsonObject = new JSONObject();
+            try {
+                jsonObject.put("android_id", Utils.string2MD5(Settings.System.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID)));
+                jsonObject.put("cpu_sn", a);
+                jsonObject.put("uuid", Utils.string2MD5(uuid));
+                jsonObject.put("bd_device_id", new FaceAuth().getDeviceId(context));
+                jsonObject.put("sn", sn);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+
+            HttpUtil.post(url, AESUtil.encode(jsonObject.toString()), new HttpUtil.HttpCallback() {
+                @Override
+                public void onFailed(String error) {
+
+                }
+
+                @Override
+                public void onSuccess(String bodyString) {
+                    JSONObject json;
+                    try {
+                        json = new JSONObject(bodyString);
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                        return;
+                    }
+                    if (json.optInt("status") == 200) {
+                        final String s;
+                        try {
+                            s = DesUtil.decrypt(json.optString("result"), key);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            return;
+                        }
+                        if (!TextUtils.isEmpty(s)) {
+                            String b = a.substring(0, 8);
+                            b = b + a.substring(a.length() - 8);
+                            String des;
+                            try {
+                                des = DesUtil.encrypt(sn, b);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                des = "";
+                            }
+                            if(s.equals(des)){
+                                context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE).edit().putString(KEY_LICENCE, AESUtil.encode(s)).apply();
+                                Speaker.getInstance().speak("系统激活成功");
+                                Utils.reboot(5000);
+                            }else {
+                                Speaker.getInstance().speak("系统激活失败");
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        return false;
     }
 
-    private String a() {
-        String s1, s2, s3 = "0000000000000000";
+    private static String a() {
+        String s1, s2 = "0000000000000000";
         try {
             Process pp = Runtime.getRuntime().exec("cat /proc/cpuinfo");
             InputStreamReader ir = new InputStreamReader(pp.getInputStream());
@@ -68,8 +132,7 @@ public class Auth {
                 s1 = input.readLine();
                 if (s1 != null) {
                     if (s1.contains("Serial")) {
-                        s2 = s1.substring(s1.indexOf(":") + 1);
-                        s3 = s2.trim();
+                        s2 = s1.substring(s1.indexOf(":") + 1).trim();
                         break;
                     }
                 } else {
@@ -79,6 +142,34 @@ public class Auth {
         } catch (IOException ex) {
             return null;
         }
-        return s3;
+        return s2;
+    }
+
+    public static String getAuthCode(String sn, long SeqNum, String key) {
+        String devKey;
+        String authCode;
+        try {
+            String headSq = Long.toHexString(SeqNum);
+            String tailSq = Long.toHexString(~SeqNum);
+            StringBuffer sb = null;
+            int strLen = headSq.length();
+            if (strLen < 8) {
+                while (strLen < 8) {
+                    sb = new StringBuffer();
+                    sb.append("0").append(headSq);
+                    headSq = sb.toString();
+                    strLen = headSq.length();
+                }
+                headSq = sb.toString();
+            }
+            String strSeq = headSq + tailSq.substring(8);
+            devKey = DesUtil.encrypt(sn, key);
+            String sqDesResult = DesUtil.encrypt(strSeq, devKey);
+            authCode = ByteUtil.getXor(sqDesResult, "FB0819B8CE0926F9");
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "";
+        }
+        return authCode;
     }
 }

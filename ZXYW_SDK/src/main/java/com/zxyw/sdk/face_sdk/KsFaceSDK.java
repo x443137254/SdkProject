@@ -67,7 +67,7 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
     private boolean authStatus;
 
     @Override
-    public void init(final Context context, final List<String> groupList) {
+    public void init(final Context context, final List<String> groupList, final String url) {
         this.groupList = groupList;
         executorService = Executors.newCachedThreadPool();
         mDetectResultQueue = new LinkedBlockingDeque<>(1);

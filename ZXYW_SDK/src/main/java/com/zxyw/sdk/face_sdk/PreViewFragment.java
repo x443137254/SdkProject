@@ -2,6 +2,8 @@ package com.zxyw.sdk.face_sdk;
 
 import android.graphics.RectF;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -69,14 +71,17 @@ public class PreViewFragment extends Fragment implements FaceSDK.DetectFaceCallb
         });
         mCameraRGBPreview.startPreview(true);
 
-        if (FaceSDK.Config.getCameraNum() == 2) {
-            mCameraIRPreview.openCamera(FaceSDK.Config.getPreviewCameraId() == 0 ? 1 : 0);//Camera.CameraInfo.CAMERA_FACING_FRONT
-            mCameraIRPreview.setListener(data -> {
-                if (irListener != null) irListener.change();
-                irDataBuff = data;
-            });
-            mCameraIRPreview.startPreview(true);
-        }
+        new Handler(Looper.getMainLooper()).postDelayed(()->{
+            if (FaceSDK.Config.getCameraNum() == 2) {
+                mCameraIRPreview.openCamera(FaceSDK.Config.getPreviewCameraId() == 0 ? 1 : 0);//Camera.CameraInfo.CAMERA_FACING_FRONT
+                mCameraIRPreview.setListener(data -> {
+                    if (irListener != null) irListener.change();
+                    irDataBuff = data;
+                });
+                mCameraIRPreview.startPreview(true);
+            }
+        },1000);
+
     }
 
     private void initView(View view) {

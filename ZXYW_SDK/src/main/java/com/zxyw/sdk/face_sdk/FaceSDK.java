@@ -13,7 +13,7 @@ public interface FaceSDK extends CameraDataListener{
      * @param context 上下文
      * @param groupList 需要创建的人脸分组，当传入参数为null时，需创建一个默认分组
      */
-    void init(Context context, List<String> groupList);
+    void init(Context context, List<String> groupList, String url);
 
     /**
      * 添加人脸

@@ -8,6 +8,7 @@ import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.YuvImage;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.Log;
 
@@ -23,12 +24,19 @@ import com.baidu.idl.main.facesdk.model.BDFaceInstance;
 import com.baidu.idl.main.facesdk.model.BDFaceSDKCommon;
 import com.baidu.idl.main.facesdk.model.BDFaceSDKConfig;
 import com.baidu.idl.main.facesdk.model.Feature;
+import com.zxyw.sdk.auth.AESUtil;
+import com.zxyw.sdk.auth.Auth;
 import com.zxyw.sdk.face_sdk.FaceSDK;
 import com.zxyw.sdk.face_sdk.bd_face.model.CameraFrame;
 import com.zxyw.sdk.face_sdk.bd_face.model.DetectBean;
 import com.zxyw.sdk.face_sdk.bd_face.model.GlobalSet;
 import com.zxyw.sdk.face_sdk.bd_face.model.SingleBaseConfig;
+import com.zxyw.sdk.net.http.HttpUtil;
 import com.zxyw.sdk.tools.MyLog;
+import com.zxyw.sdk.tools.Utils;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
@@ -37,11 +45,14 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.LineNumberReader;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -49,7 +60,8 @@ import static com.zxyw.sdk.face_sdk.bd_face.model.GlobalSet.FEATURE_SIZE;
 
 public class BdFaceSDK implements FaceSDK {
     private final String TAG = "DbFaceSDK";
-    private final String spName = "db_auth";
+    private final String spName = "auth_cache";
+    private final static String KEY_UUID = "uuid";
     private final String keyName = "sn";
     private FaceAuth faceAuth;
     private FaceDetect faceDetect;
@@ -77,11 +89,11 @@ public class BdFaceSDK implements FaceSDK {
     private String currentGroup;
 
     @Override
-    public void init(final Context context, final List<String> groupList) {
+    public void init(final Context context, final List<String> groupList, final String url) {
         this.groupList = groupList;
         String s = checkLostFile();
         Log.d(TAG, "missing file: " + s);
-        if (!TextUtils.isEmpty(s)) {
+        if (s != null && !s.equals("")) {
             if (!replaceFile(context, new File(s))) return;
         }
         faceAuth = new FaceAuth();
@@ -92,38 +104,92 @@ public class BdFaceSDK implements FaceSDK {
             @Override
             public void run() {
                 String cert = context.getSharedPreferences(spName, Context.MODE_PRIVATE).getString(keyName, null);
-//                if (TextUtils.isEmpty(cert)) {
-//                    faceAuth.initLicenseBatchLine(context, "fiacs-family-face-offline-app", (code, response) -> {
-//                        if (code == 0) {
-//                            onAuthSuccess(context);
-//                        } else {
-//                            MyLog.d(TAG, "active check failed! " + response);
-//                        }
-//                    });
-//                } else {
-//                    faceAuth.initLicenseOnLine(context, cert, (code, response) -> {
-//                        if (code == 0) {
-//                            onAuthSuccess(context);
-//                        } else {
-//                            MyLog.d(TAG, "active check failed! " + response);
-//                        }
-//                    });
-//                }
-
                 if (cert == null) {
-                    cert = "FRGA-X7QB-Y68Z-QVRP";
-//                    cert = "5RQS-7VHR-EFVX-QLAG";
-                    context.getSharedPreferences(spName, Context.MODE_PRIVATE).edit().putString(keyName, cert).apply();
-                }
-                faceAuth.initLicenseOnLine(context, cert, (code, response) -> {
-                    if (code == 0) {
-                        onAuthSuccess(context);
-                    } else {
-                        MyLog.d(TAG, "active check failed! " + response);
+                    if (!TextUtils.isEmpty(url)) {
+                        String uuid = context.getSharedPreferences(spName, Context.MODE_PRIVATE).getString(KEY_UUID, null);
+                        if (uuid == null) {
+                            uuid = UUID.randomUUID().toString();
+                            context.getSharedPreferences(spName, Context.MODE_PRIVATE).edit().putString(KEY_UUID, uuid).apply();
+                        }
+                        final JSONObject jsonObject = new JSONObject();
+                        try {
+                            jsonObject.put("android_id", Utils.string2MD5(Settings.System.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID)));
+                            jsonObject.put("cpu_sn", a());
+                            jsonObject.put("uuid", Utils.string2MD5(uuid));
+                            jsonObject.put("bd_device_id", new FaceAuth().getDeviceId(context));
+                            jsonObject.put("sn", Auth.readSN(context));
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                        }
+                        HttpUtil.post(url, AESUtil.encode(jsonObject.toString()), new HttpUtil.HttpCallback() {
+                            @Override
+                            public void onFailed(String error) {
+
+                            }
+
+                            @Override
+                            public void onSuccess(String bodyString) {
+                                JSONObject json;
+                                try {
+                                    json = new JSONObject(bodyString);
+                                } catch (JSONException e) {
+                                    e.printStackTrace();
+                                    return;
+                                }
+                                if (json.optInt("status") == 200) {
+                                    final String s;
+                                    try {
+                                        s = json.optString("result");
+                                    } catch (Exception e) {
+                                        e.printStackTrace();
+                                        return;
+                                    }
+                                    if (!TextUtils.isEmpty(s)) {
+                                        authOnline(s, context);
+                                    }
+                                }
+                            }
+                        });
                     }
-                });
+                } else {
+                    authOnline(cert, context);
+                }
             }
         }, 2000);
+    }
+
+    private void authOnline(String cert, Context context) {
+        faceAuth.initLicenseOnLine(context, AESUtil.decode(cert), (code, response) -> {
+            if (code == 0) {
+                context.getSharedPreferences(spName, Context.MODE_PRIVATE).edit().putString(keyName, cert).apply();
+                onAuthSuccess(context);
+            } else {
+                MyLog.d(TAG, "active check failed! " + response);
+            }
+        });
+    }
+
+    private String a() {
+        String s1, s2 = "0000000000000000";
+        try {
+            Process pp = Runtime.getRuntime().exec("cat /proc/cpuinfo");
+            InputStreamReader ir = new InputStreamReader(pp.getInputStream());
+            LineNumberReader input = new LineNumberReader(ir);
+            for (int i = 1; i < 100; i++) {
+                s1 = input.readLine();
+                if (s1 != null) {
+                    if (s1.contains("Serial")) {
+                        s2 = s1.substring(s1.indexOf(":") + 1).trim();
+                        break;
+                    }
+                } else {
+                    break;
+                }
+            }
+        } catch (IOException ex) {
+            return null;
+        }
+        return s2;
     }
 
     private void onAuthSuccess(Context context) {
@@ -357,6 +423,7 @@ public class BdFaceSDK implements FaceSDK {
                                 BDFaceSDKCommon.AlignType.BDFACE_ALIGN_TYPE_RGB_FAST, imageInstance) :
                         faceDetect.track(BDFaceSDKCommon.DetectType.DETECT_VIS,
                                 BDFaceSDKCommon.AlignType.BDFACE_ALIGN_TYPE_RGB_FAST, rgbInstance);
+                Log.d(TAG, "trackFace: face num: " + (faceInfos == null ? 0 : faceInfos.length));
                 if (faceInfos != null && faceInfos.length > 0) {
                     if (regFace) {
                         DetectBean bean = new DetectBean();

@@ -17,6 +17,7 @@ public final class Path {
     public static final String WALLPAPER = FTP_ROOT + File.separator + "wallpaper";
     public static final String PHOTO = FTP_ROOT + File.separator + "photo";
     public static final String CAPTURE = FTP_ROOT + File.separator + "capture";
+    public static final String RING = FTP_ROOT + File.separator + "ring";
 
     /**
      * 创建各个目录
@@ -35,6 +36,7 @@ public final class Path {
         mkDir(new File(CAPTURE));
         mkDir(new File(TEMP));
         mkDir(new File(WALLPAPER));
+        mkDir(new File(RING));
     }
 
     private static void mkDir(File file) {
