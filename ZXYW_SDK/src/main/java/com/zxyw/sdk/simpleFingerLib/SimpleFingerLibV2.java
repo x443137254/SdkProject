@@ -10,8 +10,11 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Arrays;
 
+/**
+ * 除指纹录入外不再管理指纹模块电源，通过监听F12事件发送读取指纹模板指令
+ */
 public class SimpleFingerLibV2 {
-    private final String TAG = "fingerLib";
+    private final String TAG = "SimpleFingerLibV2";
     private static SimpleFingerLibV2 instance;
     private FingerDetectListener fingerDetectListener;
     private FingerEnrollListener fingerEnrollListener;
