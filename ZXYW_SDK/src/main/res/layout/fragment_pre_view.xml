@@ -6,8 +6,9 @@
 
     <com.zxyw.sdk.face_sdk.CameraPreview
         android:id="@+id/pre_view2"
+        android:layout_gravity="center"
         android:layout_width="match_parent"
-        android:layout_height="match_parent"/>
+        android:layout_height="match_parent" />
 
     <com.zxyw.sdk.face_sdk.CameraPreview
         android:id="@+id/pre_view"
