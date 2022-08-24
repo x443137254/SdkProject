@@ -448,7 +448,7 @@ public class BdFaceSDK implements FaceSDK {
                                 rectfs[i].right = centerX + halfWidth;
                                 rectfs[i].top = centerY - halfHeight;
                                 rectfs[i].bottom = centerY + halfHeight;
-                                if (Config.isMirror()) {
+                                if (Config.isMirror() ^ Config.getPreviewCameraId() == 1) {
                                     rectfs[i].left = detectFaceCallback.getMeasuredWidth() - rectfs[i].left;
                                     rectfs[i].right = detectFaceCallback.getMeasuredWidth() - rectfs[i].right;
                                 }
