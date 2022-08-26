@@ -7,11 +7,15 @@ import android.text.TextUtils;
 import com.baidu.idl.main.facesdk.FaceAuth;
 import com.zxyw.sdk.net.http.HttpUtil;
 import com.zxyw.sdk.speaker.Speaker;
+import com.zxyw.sdk.tools.Path;
 import com.zxyw.sdk.tools.Utils;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.LineNumberReader;
@@ -30,11 +34,58 @@ public class Auth {
     }
 
     public static void backupSN(final Context context, final String sn) {
-        context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE).edit().putString(KEY_SN, AESUtil.encode(sn)).apply();
+        final String encodeSN = AESUtil.encode(sn);
+        context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE).edit().putString(KEY_SN, encodeSN).apply();
+        final String packageName = context.getPackageName();
+        final File file = new File(Path.FTP_ROOT + "/" + Utils.string2MD5(packageName));
+        try (final FileWriter writer = new FileWriter(file)){
+            if (!file.exists() || file.isFile()){
+                if(!file.createNewFile()) return;
+            }
+            writer.write(encodeSN);
+        }catch (Exception e){
+            e.printStackTrace();
+        }
     }
 
     public static String readSN(final Context context) {
-        return AESUtil.decode(context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE).getString(KEY_SN, null));
+        String cache = context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE).getString(KEY_SN, null);
+        String sn = null;
+        final String packageName = context.getPackageName();
+        final File file = new File(Path.FTP_ROOT + "/" + Utils.string2MD5(packageName));
+        if (TextUtils.isEmpty(cache)) {
+            if (file.exists() && file.isFile()) {
+                try (final FileReader reader = new FileReader(file)) {
+                    final char[] buff = new char[64];
+                    final int len = reader.read(buff);
+                    cache = new String(buff, 0, len);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            if (!TextUtils.isEmpty(cache)){
+                context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE).edit().putString(KEY_SN, cache).apply();
+            }
+        }else {
+            if (!file.exists() || file.isFile()){
+                try {
+                    file.createNewFile();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            if (file.exists() && file.isFile()){
+                try (final FileWriter writer = new FileWriter(file)){
+                    writer.write(cache);
+                }catch (Exception e){
+                    e.printStackTrace();
+                }
+            }
+        }
+        if (!TextUtils.isEmpty(cache)){
+            sn = AESUtil.decode(cache);
+        }
+        return sn;
     }
 
     public static boolean checkAuth(final Context context, final String sn, final String url, final String key) {
@@ -107,11 +158,11 @@ public class Auth {
                                 e.printStackTrace();
                                 des = "";
                             }
-                            if(s.equals(des)){
+                            if (s.equals(des)) {
                                 context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE).edit().putString(KEY_LICENCE, AESUtil.encode(s)).apply();
                                 Speaker.getInstance().speak("系统激活成功");
                                 Utils.reboot(5000);
-                            }else {
+                            } else {
                                 Speaker.getInstance().speak("系统激活失败");
                             }
                         }

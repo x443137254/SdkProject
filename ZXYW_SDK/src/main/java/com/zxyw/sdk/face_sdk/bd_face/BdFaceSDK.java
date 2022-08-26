@@ -645,7 +645,7 @@ public class BdFaceSDK implements FaceSDK {
     }
 
     @Override
-    public void addFace(final String photoPath, final AddFaceCallback callback) {
+    public synchronized void addFace(final String photoPath, final AddFaceCallback callback) {
         if (!init) {
             if (callback != null) {
                 callback.addResult(false, "SDK未初始化");
