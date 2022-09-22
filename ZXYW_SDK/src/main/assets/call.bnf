@@ -1,12 +1,4 @@
 #BNF+IAT 1.0 UTF-8;
 !grammar call;
-!slot <contact>;
-!slot <callPre>;
-!slot <callPhone>;
-!slot <callTo>;
 !start <callStart>;
-<callStart>:[<callPre>][<callTo>]<contact><callPhone>|[<callPre>]<callPhone>[<callTo>]<contact>;
-<contact>:张海洋;
-<callPre>:我要|我想|我想要;
-<callPhone>:打电话;
-<callTo>:给;
+<callStart>:重启|重启设备|开门|布防|设防|撤防|解防|解除报警|恢复报警|视频对讲|请求对讲|视频请求|请求通话|查看监控;

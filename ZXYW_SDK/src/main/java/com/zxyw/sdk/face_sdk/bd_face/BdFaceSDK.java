@@ -298,7 +298,7 @@ public class BdFaceSDK implements FaceSDK {
                         float irScore = faceLiveness.silentLive(BDFaceSDKCommon.LiveType.BDFACE_SILENT_LIVE_TYPE_NIR,
                                 irImage, faceInfosIr[0].landmarks);
                         irImage.destory();
-                        if (irScore < SingleBaseConfig.getBaseConfig().getNirLiveScore()) {
+                        if (irScore < FaceSDK.Config.getLivenessThreshold()) {
 //                            if (recognizeCallback != null) {
 //                                recognizeCallback.recognizeResult(false, "检测失败");
 //                            }
@@ -645,7 +645,7 @@ public class BdFaceSDK implements FaceSDK {
     }
 
     @Override
-    public void addFace(final String photoPath, final AddFaceCallback callback) {
+    public synchronized void addFace(final String photoPath, final AddFaceCallback callback) {
         if (!init) {
             if (callback != null) {
                 callback.addResult(false, "SDK未初始化");
