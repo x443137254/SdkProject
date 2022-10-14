@@ -298,7 +298,7 @@ public class BdFaceSDK implements FaceSDK {
                         float irScore = faceLiveness.silentLive(BDFaceSDKCommon.LiveType.BDFACE_SILENT_LIVE_TYPE_NIR,
                                 irImage, faceInfosIr[0].landmarks);
                         irImage.destory();
-                        if (irScore < FaceSDK.Config.getLivenessThreshold()) {
+                        if (irScore * 100 < FaceSDK.Config.getLivenessThreshold()) {
 //                            if (recognizeCallback != null) {
 //                                recognizeCallback.recognizeResult(false, "检测失败");
 //                            }
