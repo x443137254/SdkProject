@@ -31,6 +31,27 @@ public class AESUtil {
         }
     }
 
+    public static String encode(String key, String source) {
+        try {
+            final Cipher cipher = Cipher.getInstance("AES/CBC/NoPadding");
+            final int blockSize = cipher.getBlockSize();
+            final byte[] dataBytes = source.getBytes();
+            int plaintextLength = dataBytes.length;
+            if (plaintextLength % blockSize != 0) {
+                plaintextLength = plaintextLength + (blockSize - (plaintextLength % blockSize));
+            }
+            final byte[] plaintext = new byte[plaintextLength];
+            System.arraycopy(dataBytes, 0, plaintext, 0, dataBytes.length);
+            cipher.init(Cipher.ENCRYPT_MODE,
+                    new SecretKeySpec(key.getBytes(), "AES"),
+                    new IvParameterSpec(iv.getBytes()));
+            return bytesToHexString(cipher.doFinal(plaintext));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     public static String decode(String data) {
         if (data == null || data.equals("")) return null;
         try {
@@ -39,6 +60,19 @@ public class AESUtil {
                     new SecretKeySpec(key.getBytes(), "AES"),
                     new IvParameterSpec(iv.getBytes()));
             return new String(cipher.doFinal(hexStringToByte(data))).trim();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public static String decode(String key, String source) {
+        try {
+            final Cipher cipher = Cipher.getInstance("AES/CBC/NoPadding");
+            cipher.init(Cipher.DECRYPT_MODE,
+                    new SecretKeySpec(key.getBytes(), "AES"),
+                    new IvParameterSpec(iv.getBytes()));
+            return new String(cipher.doFinal(hexStringToByte(source))).trim();
         } catch (Exception e) {
             e.printStackTrace();
             return null;
