@@ -172,6 +172,7 @@ public class BdFaceSDK implements FaceSDK {
             if (code == 0) {
                 context.getSharedPreferences(spName, Context.MODE_PRIVATE).edit().putString(keyName, cert).apply();
                 if (callback != null) callback.authResult(true);
+                onAuthSuccess(context);
             } else {
                 if (callback != null) callback.authResult(false);
             }
