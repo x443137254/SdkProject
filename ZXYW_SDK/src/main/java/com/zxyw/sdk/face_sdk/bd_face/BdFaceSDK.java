@@ -11,6 +11,7 @@ import android.graphics.YuvImage;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.baidu.idl.main.facesdk.FaceAuth;
 import com.baidu.idl.main.facesdk.FaceDarkEnhance;
@@ -103,68 +104,75 @@ public class BdFaceSDK implements FaceSDK {
         new Timer().schedule(new TimerTask() {
             @Override
             public void run() {
-                String cert = context.getSharedPreferences(spName, Context.MODE_PRIVATE).getString(keyName, null);
-                if (cert == null) {
-                    if (!TextUtils.isEmpty(url)) {
-                        String uuid = context.getSharedPreferences(spName, Context.MODE_PRIVATE).getString(KEY_UUID, null);
-                        if (uuid == null) {
-                            uuid = UUID.randomUUID().toString();
-                            context.getSharedPreferences(spName, Context.MODE_PRIVATE).edit().putString(KEY_UUID, uuid).apply();
-                        }
-                        final JSONObject jsonObject = new JSONObject();
-                        try {
-                            jsonObject.put("android_id", Utils.string2MD5(Settings.System.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID)));
-                            jsonObject.put("cpu_sn", a());
-                            jsonObject.put("uuid", Utils.string2MD5(uuid));
-                            jsonObject.put("bd_device_id", new FaceAuth().getDeviceId(context));
-                            jsonObject.put("sn", Auth.readSN(context));
-                        } catch (JSONException e) {
-                            e.printStackTrace();
-                        }
-                        HttpUtil.post(url, AESUtil.encode(jsonObject.toString()), new HttpUtil.HttpCallback() {
-                            @Override
-                            public void onFailed(String error) {
-
-                            }
-
-                            @Override
-                            public void onSuccess(String bodyString) {
-                                JSONObject json;
-                                try {
-                                    json = new JSONObject(bodyString);
-                                } catch (JSONException e) {
-                                    e.printStackTrace();
-                                    return;
-                                }
-                                if (json.optInt("status") == 200) {
-                                    final String s;
-                                    try {
-                                        s = json.optString("result");
-                                    } catch (Exception e) {
-                                        e.printStackTrace();
-                                        return;
-                                    }
-                                    if (!TextUtils.isEmpty(s)) {
-                                        authOnline(s, context);
-                                    }
-                                }
-                            }
-                        });
-                    }
-                } else {
-                    authOnline(cert, context);
-                }
+                getCertificate(context, url);
             }
         }, 2000);
+    }
+
+    @Override
+    public void getCertificate(Context context, String url) {
+        String cert = context.getSharedPreferences(spName, Context.MODE_PRIVATE).getString(keyName, null);
+        if (cert == null) {
+            if (!TextUtils.isEmpty(url)) {
+                String uuid = context.getSharedPreferences(spName, Context.MODE_PRIVATE).getString(KEY_UUID, null);
+                if (uuid == null) {
+                    uuid = UUID.randomUUID().toString();
+                    context.getSharedPreferences(spName, Context.MODE_PRIVATE).edit().putString(KEY_UUID, uuid).apply();
+                }
+                final JSONObject jsonObject = new JSONObject();
+                try {
+                    jsonObject.put("android_id", Utils.string2MD5(Settings.System.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID)));
+                    jsonObject.put("cpu_sn", a());
+                    jsonObject.put("uuid", Utils.string2MD5(uuid));
+                    jsonObject.put("bd_device_id", new FaceAuth().getDeviceId(context));
+                    jsonObject.put("sn", Auth.readSN(context));
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+                HttpUtil.post(url, AESUtil.encode(jsonObject.toString()), new HttpUtil.HttpCallback() {
+                    @Override
+                    public void onFailed(String error) {
+
+                    }
+
+                    @Override
+                    public void onSuccess(String bodyString) {
+                        JSONObject json;
+                        try {
+                            json = new JSONObject(bodyString);
+                        } catch (JSONException e) {
+                            e.printStackTrace();
+                            return;
+                        }
+                        if (json.optInt("status") == 200) {
+                            final String s;
+                            try {
+                                s = json.optString("result");
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                return;
+                            }
+                            if (!TextUtils.isEmpty(s)) {
+                                authOnline(s, context);
+                            }
+                        }
+                    }
+                });
+            }
+        } else {
+            authOnline(cert, context);
+        }
     }
 
     private void authOnline(String cert, Context context) {
         faceAuth.initLicenseOnLine(context, AESUtil.decode(cert), (code, response) -> {
             if (code == 0) {
                 context.getSharedPreferences(spName, Context.MODE_PRIVATE).edit().putString(keyName, cert).apply();
-                onAuthSuccess(context);
+                Utils.reboot(2500);
+                Toast.makeText(context, "人脸识别激活成功", Toast.LENGTH_SHORT).show();
             } else {
                 MyLog.d(TAG, "active check failed! " + response);
+                Toast.makeText(context, "人脸识别激活失败", Toast.LENGTH_SHORT).show();
             }
         });
     }

@@ -19,7 +19,11 @@ import okhttp3.ResponseBody;
 public class HttpUtil {
 
     private static final String TAG = "HttpUtil";
-    private static final OkHttpClient client = new OkHttpClient.Builder().connectTimeout(15, TimeUnit.SECONDS).build();
+    private static final OkHttpClient client = new OkHttpClient.Builder()
+            .connectTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .build();
 //    private static final ExecutorService threadPool = Executors.newCachedThreadPool();
 
     public static void post(final String url, final String content, final HttpCallback callback) {
@@ -29,7 +33,8 @@ public class HttpUtil {
                 .build()).enqueue(new Callback() {
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
-                MyLog.e(TAG, "request failed! " + e.toString());
+                e.printStackTrace();
+                MyLog.e(TAG, "request failed! url=" + url);
                 if (callback != null) {
                     callback.onFailed(e.toString());
                 }

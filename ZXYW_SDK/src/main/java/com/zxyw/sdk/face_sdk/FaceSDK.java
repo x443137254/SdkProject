@@ -16,6 +16,13 @@ public interface FaceSDK extends CameraDataListener{
     void init(Context context, List<String> groupList, String url);
 
     /**
+     * 手动获取授权文件
+     * @param context 上下文
+     * @param url 授权文件地址
+     */
+    void getCertificate(Context context, String url);
+
+    /**
      * 添加人脸
      * @param photoPath 照片路径
      * @param callback 添加结果回调方法

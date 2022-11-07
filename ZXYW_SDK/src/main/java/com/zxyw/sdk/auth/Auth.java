@@ -19,8 +19,6 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.LineNumberReader;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.UUID;
 
 public class Auth {
@@ -111,7 +109,16 @@ public class Auth {
             auth = licence.equals(des);
         }
         if (auth) return true;
-        else if (!TextUtils.isEmpty(url)) {
+        getAuthCode(context, sn, url, key, a);
+        return false;
+    }
+
+    public static void getAuthCode(Context context, String sn, String url, String key){
+        getAuthCode(context, sn, url, key, a());
+    }
+
+    private static void getAuthCode(Context context, String sn, String url, String key, String a) {
+        if (!TextUtils.isEmpty(url)) {
             String uuid = context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE).getString(KEY_UUID, null);
             if (uuid == null) {
                 uuid = UUID.randomUUID().toString();
@@ -128,57 +135,51 @@ public class Auth {
                 e.printStackTrace();
             }
 
-            new Timer().schedule(new TimerTask() {
+            HttpUtil.post(url, AESUtil.encode(jsonObject.toString()), new HttpUtil.HttpCallback() {
                 @Override
-                public void run() {
-                    HttpUtil.post(url, AESUtil.encode(jsonObject.toString()), new HttpUtil.HttpCallback() {
-                        @Override
-                        public void onFailed(String error) {
+                public void onFailed(String error) {
 
-                        }
-
-                        @Override
-                        public void onSuccess(String bodyString) {
-                            JSONObject json;
-                            try {
-                                json = new JSONObject(bodyString);
-                            } catch (JSONException e) {
-                                e.printStackTrace();
-                                return;
-                            }
-                            if (json.optInt("status") == 200) {
-                                final String s;
-                                try {
-                                    s = DesUtil.decrypt(json.optString("result"), key);
-                                } catch (Exception e) {
-                                    e.printStackTrace();
-                                    return;
-                                }
-                                if (!TextUtils.isEmpty(s)) {
-                                    String b = a.substring(0, 8);
-                                    b = b + a.substring(a.length() - 8);
-                                    String des;
-                                    try {
-                                        des = DesUtil.encrypt(sn, b);
-                                    } catch (Exception e) {
-                                        e.printStackTrace();
-                                        des = "";
-                                    }
-                                    if (s.equals(des)) {
-                                        context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE).edit().putString(KEY_LICENCE, AESUtil.encode(s)).apply();
-                                        Speaker.getInstance().speak("系统激活成功");
-                                        Utils.reboot(5000);
-                                    } else {
-                                        Speaker.getInstance().speak("系统激活失败");
-                                    }
-                                }
-                            }
-                        }
-                    });
                 }
-            }, 2000);
+
+                @Override
+                public void onSuccess(String bodyString) {
+                    JSONObject json;
+                    try {
+                        json = new JSONObject(bodyString);
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                        return;
+                    }
+                    if (json.optInt("status") == 200) {
+                        final String s;
+                        try {
+                            s = DesUtil.decrypt(json.optString("result"), key);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                            return;
+                        }
+                        if (!TextUtils.isEmpty(s)) {
+                            String b = a.substring(0, 8);
+                            b = b + a.substring(a.length() - 8);
+                            String des;
+                            try {
+                                des = DesUtil.encrypt(sn, b);
+                            } catch (Exception e) {
+                                e.printStackTrace();
+                                des = "";
+                            }
+                            if (s.equals(des)) {
+                                context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE).edit().putString(KEY_LICENCE, AESUtil.encode(s)).apply();
+                                Speaker.getInstance().speak("系统激活成功");
+                                Utils.reboot(3000);
+                            } else {
+                                Speaker.getInstance().speak("系统激活失败");
+                            }
+                        }
+                    }
+                }
+            });
         }
-        return false;
     }
 
     private static String a() {

@@ -108,6 +108,11 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
         }
     }
 
+    @Override
+    public void getCertificate(Context context, String url) {
+        throw new RuntimeException("方法未实现");
+    }
+
     private void installApk(final Context context) {
         MyLog.d(TAG, "try reInstall app");
         executorService.execute(() -> {
