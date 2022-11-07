@@ -6,31 +6,35 @@ import android.hardware.Camera;
 
 import java.util.List;
 
-public interface FaceSDK extends CameraDataListener{
+public interface FaceSDK extends CameraDataListener {
 
     /**
      * SDK初始化
-     * @param context 上下文
+     *
+     * @param context   上下文
      * @param groupList 需要创建的人脸分组，当传入参数为null时，需创建一个默认分组
      */
     void init(Context context, List<String> groupList, String url);
 
     /**
      * 手动获取授权文件
+     *
      * @param context 上下文
-     * @param url 授权文件地址
+     * @param url     授权文件地址
      */
-    void getCertificate(Context context, String url);
+    void getCertificate(Context context, String url, AuthCallback callback);
 
     /**
      * 添加人脸
+     *
      * @param photoPath 照片路径
-     * @param callback 添加结果回调方法
+     * @param callback  添加结果回调方法
      */
     void addFace(String photoPath, AddFaceCallback callback);
 
     /**
      * 删除人脸
+     *
      * @param faceToken 删除的人脸对应的faceToken
      */
     void deleteFace(String faceToken);
@@ -42,18 +46,21 @@ public interface FaceSDK extends CameraDataListener{
 
     /**
      * 设置当前使用的人脸组
+     *
      * @param group 人脸分组名称
      */
     void setCurrentGroup(String group);
 
     /**
      * 删除人脸数据
+     *
      * @param groupName 人脸分组
      */
     void clearFace(String groupName);
 
     /**
      * 保存抓怕照片
+     *
      * @param savePath 保存的路径
      * @return 是否保存成功
      */
@@ -61,8 +68,9 @@ public interface FaceSDK extends CameraDataListener{
 
     /**
      * 授权激活
-     * @param context 上下文
-     * @param cert 激活码
+     *
+     * @param context  上下文
+     * @param cert     激活码
      * @param callback 激活结果回调
      */
     void auth(Context context, String cert, AuthCallback callback);
@@ -79,6 +87,7 @@ public interface FaceSDK extends CameraDataListener{
 
     /**
      * 使用当前底库进行照片比对
+     *
      * @param photoPath 比对的照片
      * @return 比对结果，找到相似人脸返回对应token，否则返回null
      */
@@ -94,6 +103,7 @@ public interface FaceSDK extends CameraDataListener{
     interface AddFaceCallback {
         /**
          * 人脸添加结果回调
+         *
          * @param success true 添加成功，false 添加失败
          * @param message 添加失败时的提示消息
          */
@@ -103,6 +113,7 @@ public interface FaceSDK extends CameraDataListener{
     interface RecognizeCallback {
         /**
          * 人脸识别结果回调
+         *
          * @param success true 识别成功，false 识别失败
          * @param message 识别成功时返回对应faceToken，否则返回提示消息
          */
@@ -112,32 +123,36 @@ public interface FaceSDK extends CameraDataListener{
     interface AuthCallback {
         /**
          * 授权激活结果回调
+         *
          * @param success true 激活成功，false 激活失败
          */
         void authResult(boolean success);
     }
 
-    interface DetectFaceCallback{
+    interface DetectFaceCallback {
         /**
          * 检测到人脸后回调，在预览画面上绘出人脸位置框
+         *
          * @param rectList 人脸矩形框（已经过旋转缩放处理）
          */
         void onDetectFace(RectF[] rectList);
 
         /**
          * 获取显示窗口宽度
+         *
          * @return 宽度
          */
         int getMeasuredWidth();
 
         /**
          * 获取显示窗口高度
+         *
          * @return 高度
          */
         int getMeasuredHeight();
     }
 
-    class Config{
+    class Config {
         //rbg预览画面旋转角度
         private static int previewOrientation = 0;
         //ir画面旋转角度
@@ -150,11 +165,13 @@ public interface FaceSDK extends CameraDataListener{
         private static int cameraNum = Camera.getNumberOfCameras();
         //人脸框镜像
         private static boolean mirror = false;
-        public static void setCameraNum(int num){
-            if (num > 0 &&  num <= cameraNum){
+
+        public static void setCameraNum(int num) {
+            if (num > 0 && num <= cameraNum) {
                 cameraNum = num;
             }
         }
+
         private static String crashPath;
         private static String apkPath;
         private static int previewCameraId = 0;

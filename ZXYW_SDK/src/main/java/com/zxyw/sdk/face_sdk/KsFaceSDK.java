@@ -109,7 +109,7 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
     }
 
     @Override
-    public void getCertificate(Context context, String url) {
+    public void getCertificate(Context context, String url, AuthCallback callback) {
         throw new RuntimeException("方法未实现");
     }
 
