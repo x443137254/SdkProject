@@ -25,7 +25,7 @@ public class SimpleFingerLibV2 {
     private final Handler handler;
     private boolean open;
 
-    private enum ActionType {DETECT, ENROLL}
+    private enum ActionType {DETECT, ENROLL, CLOSE}
 
     public void setFingerDetectListener(FingerDetectListener fingerDetectListener) {
         this.fingerDetectListener = fingerDetectListener;
@@ -108,9 +108,11 @@ public class SimpleFingerLibV2 {
     }
 
     public void closeFinger() {
-        device.closePower();
-        open = false;
-        MyLog.d(TAG, "turn off finger power");
+        index = 0;
+        type = ActionType.CLOSE;
+        if (open) {
+            send(CmdFactory.cancel());
+        }
     }
 
     private void parse() {
@@ -145,8 +147,12 @@ public class SimpleFingerLibV2 {
                 if (type == ActionType.DETECT) {
                     index = 0;
                     send(CmdFactory.getData());
-                } else {
+                } else if (type == ActionType.ENROLL) {
                     deleteAll();
+                }else if (device != null){
+                    device.closePower();
+                    open = false;
+                    MyLog.d(TAG, "turn off finger power");
                 }
             } else {//失败，无法取消就断电
                 String s = FingerTools.bytes2string(Arrays.copyOfRange(buff, offset + 6, offset + 8));
@@ -186,7 +192,9 @@ public class SimpleFingerLibV2 {
             } else {//失败，关闭电源
                 String s = FingerTools.bytes2string(Arrays.copyOfRange(buff, offset + 6, offset + 8));
                 MyLog.d(TAG, "enroll failed：" + s);
-                fingerEnrollListener.enrollStep(FingerEnrollListener.Step.ERROR, null);
+                if (fingerEnrollListener != null) {
+                    fingerEnrollListener.enrollStep(FingerEnrollListener.Step.ERROR, null);
+                }
                 closeFinger();
             }
         } else if (buff[offset + 2] == Command.READ[0] && buff[offset + 3] == Command.READ[1]) {//读取录入的指纹模板数据
