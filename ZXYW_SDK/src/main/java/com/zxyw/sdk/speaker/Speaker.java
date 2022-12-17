@@ -81,34 +81,40 @@ public class Speaker {
         return instance;
     }
 
-    public void init(final Context context) {
+    public void init(final Context context, boolean b1, boolean b2, boolean b3) {
         String param = "appid=" + appid + "," + SpeechConstant.ENGINE_MODE + "=" + SpeechConstant.MODE_MSC;
         SpeechUtility.createUtility(context.getApplicationContext(), param);
-        mTts = SpeechSynthesizer.createSynthesizer(context.getApplicationContext(), code -> {
-            if (code != ErrorCode.SUCCESS) {
-                mTts = null;
-                MyLog.e(TAG, "语音合成初始化失败！错误码：" + code);
-            } else {
-                setTtsParam(context);
-            }
-        });
-        mIvw = VoiceWakeuper.createWakeuper(context.getApplicationContext(), code -> {
-            if (code != ErrorCode.SUCCESS) {
-                mIvw = null;
-                MyLog.e(TAG, "语音唤醒初始化失败！错误码：" + code);
-            }
-//            else {
-//                setIvwParam(context);
-//            }
-        });
-        mAsr = SpeechRecognizer.createRecognizer(context.getApplicationContext(), code -> {
-            if (code != ErrorCode.SUCCESS) {
-                mAsr = null;
-                MyLog.e(TAG, "语音识别初始化失败！错误码：" + code);
-            } else {
-                setAsrParam(context);
-            }
-        });
+        if (b1) {
+            mTts = SpeechSynthesizer.createSynthesizer(context.getApplicationContext(), code -> {
+                if (code != ErrorCode.SUCCESS) {
+                    mTts = null;
+                    MyLog.e(TAG, "语音合成初始化失败！错误码：" + code);
+                } else {
+                    setTtsParam(context);
+                }
+            });
+        }
+        if (b2) {
+            mIvw = VoiceWakeuper.createWakeuper(context.getApplicationContext(), code -> {
+                if (code != ErrorCode.SUCCESS) {
+                    mIvw = null;
+                    MyLog.e(TAG, "语音唤醒初始化失败！错误码：" + code);
+                }
+    //            else {
+    //                setIvwParam(context);
+    //            }
+            });
+        }
+        if (b3) {
+            mAsr = SpeechRecognizer.createRecognizer(context.getApplicationContext(), code -> {
+                if (code != ErrorCode.SUCCESS) {
+                    mAsr = null;
+                    MyLog.e(TAG, "语音识别初始化失败！错误码：" + code);
+                } else {
+                    setAsrParam(context);
+                }
+            });
+        }
     }
 
     /**
