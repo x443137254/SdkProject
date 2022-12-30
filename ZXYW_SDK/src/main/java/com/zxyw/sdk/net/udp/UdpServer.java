@@ -1,10 +1,8 @@
 package com.zxyw.sdk.net.udp;
 
-import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.net.SocketException;
 import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
@@ -36,7 +34,7 @@ public class UdpServer {
     }
 
     public void start() {
-        if (start) service.shutdown();
+        if (start) return;
         service.execute(() -> {
             start = true;
             while (start) {
@@ -48,7 +46,8 @@ public class UdpServer {
                     if (listener != null) {
                         byte[] response = listener.onReceive(Arrays.copyOfRange(recPacket.getData(), 0, recPacket.getLength()));
                         if (response != null) {
-                            send(response, new InetSocketAddress(recPacket.getAddress(), recPacket.getPort()));
+                            socket.send(new DatagramPacket(response, response.length,
+                                    new InetSocketAddress(recPacket.getAddress(), recPacket.getPort())));
                         }
                     }
                 } catch (Exception e) {
@@ -69,15 +68,15 @@ public class UdpServer {
         service = null;
     }
 
-    public void send(byte[] data, SocketAddress address) {
-        service.submit(() -> {
-            if (socket != null) {
-                try {
-                    socket.send(new DatagramPacket(data, data.length, address));
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
-        });
-    }
+//    public void send(byte[] data, SocketAddress address) {
+//        service.submit(() -> {
+//            if (socket != null) {
+//                try {
+//                    socket.send(new DatagramPacket(data, data.length, address));
+//                } catch (IOException e) {
+//                    e.printStackTrace();
+//                }
+//            }
+//        });
+//    }
 }
