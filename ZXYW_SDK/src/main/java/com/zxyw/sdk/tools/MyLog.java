@@ -15,6 +15,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 public class MyLog {
     private static final Format format = new SimpleDateFormat("HH:mm:ss.SSS", Locale.CHINA);
     private final static BlockingQueue<LogContent> queue = new LinkedBlockingQueue<>();
+    private static int maxSize = 100;
 
     static {
         new Thread(() -> {
@@ -26,6 +27,13 @@ public class MyLog {
                 }
             }
         }).start();
+    }
+
+    /**
+     * @param maxSize 日志文件夹最大使用空间（单位M）
+     */
+    public static void setMaxSize(int maxSize) {
+        MyLog.maxSize = maxSize;
     }
 
     public static void w(String tag, String msg) { // 警告信息
@@ -73,6 +81,7 @@ public class MyLog {
 
     private static void writeToFile(LogContent log) {
         if (log == null) return;
+        checkDiskFree();
         final String fileName = Path.LOG + File.separator +
                 new SimpleDateFormat("yyyy-MM-dd", Locale.CHINA).format(new Date()) + ".log";
         File file = new File(fileName);
@@ -84,7 +93,7 @@ public class MyLog {
                 }
             }
         }
-        try (FileWriter fileWriter = new FileWriter(file, true)){
+        try (FileWriter fileWriter = new FileWriter(file, true)) {
             fileWriter.append(log.time)
                     .append(" ")
                     .append(log.tag)
@@ -94,6 +103,27 @@ public class MyLog {
             fileWriter.flush();
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    private static void checkDiskFree() {
+        final File file = new File(Path.LOG);
+        if (file.exists()) {
+            final File[] files = file.listFiles();
+            if (files != null && files.length > 0) {
+                long totalSize = 0;
+                File deleteFile = files[0];
+                for (File f : files) {
+                    totalSize += f.length();
+                    if (f.lastModified() < deleteFile.lastModified()) {
+                        deleteFile = f;
+                    }
+                }
+                if (totalSize > maxSize * 1024 * 1024) {
+                    //noinspection ResultOfMethodCallIgnored
+                    deleteFile.delete();
+                }
+            }
         }
     }
 
