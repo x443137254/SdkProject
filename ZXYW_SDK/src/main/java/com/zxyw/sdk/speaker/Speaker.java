@@ -42,7 +42,7 @@ public class Speaker {
     private final Queue<String> queue;
     volatile private boolean talking;
     final private Handler handler;
-    private String speakContent;
+//    private String speakContent;
     final private Runnable speakRunnable;
     private SpeakStatusChangeListener statusChangeListener;
     private WakeuperListener mWakeuperListener;
@@ -58,8 +58,9 @@ public class Speaker {
         thread.start();
         handler = new Handler(thread.getLooper());
         speakRunnable = () -> {
-            if (mTts != null) {
-                mTts.startSpeaking(speakContent, synthesizerListener);
+            if (mTts != null && !queue.isEmpty()) {
+                talking = true;
+                mTts.startSpeaking(queue.poll(), synthesizerListener);
             }
         };
     }
@@ -100,9 +101,9 @@ public class Speaker {
                     mIvw = null;
                     MyLog.e(TAG, "语音唤醒初始化失败！错误码：" + code);
                 }
-    //            else {
-    //                setIvwParam(context);
-    //            }
+                //            else {
+                //                setIvwParam(context);
+                //            }
             });
         }
         if (b3) {
@@ -177,10 +178,10 @@ public class Speaker {
 
             @Override
             public void onError(SpeechError error) {
-                if (commendListener != null){
+                if (commendListener != null) {
                     commendListener.onRecognize(null, 0, error.getErrorCode());
                 }
-                MyLog.e(TAG,"Recognize error: " + error.getErrorCode());
+                MyLog.e(TAG, "Recognize error: " + error.getErrorCode());
             }
 
             @Override
@@ -202,7 +203,7 @@ public class Speaker {
                     //本地多候选按照置信度高低排序，一般选取第一个结果即可
                     final String w = items.getJSONObject(0).optString("w");
                     final int score = joResult.optInt("sc");
-                    if (!w.contains("nomatch") && commendListener != null){
+                    if (!w.contains("nomatch") && commendListener != null) {
                         commendListener.onRecognize(w, score, ErrorCode.SUCCESS);
                     }
                     MyLog.d(TAG, "recognize success! word: " + w + "  score: " + score);
@@ -212,7 +213,7 @@ public class Speaker {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        if (commendListener != null){
+        if (commendListener != null) {
             commendListener.onRecognize(null, 0, ErrorCode.ERROR_NO_MATCH);
         }
         MyLog.d(TAG, "recognize error: " + ErrorCode.ERROR_NO_MATCH);
@@ -292,14 +293,14 @@ public class Speaker {
         };
     }
 
-    public void startRecognize(){
-        if (mAsr != null){
+    public void startRecognize() {
+        if (mAsr != null) {
             mAsr.startListening(recognizerListener);
         }
     }
 
-    public void stopRecognize(){
-        if (mAsr != null){
+    public void stopRecognize() {
+        if (mAsr != null) {
             mAsr.stopListening();
         }
     }
@@ -323,7 +324,7 @@ public class Speaker {
 
     public void speakNow(String content) {
         queue.clear();
-        speakContent = content;
+        queue.add(content);
         handler.post(speakRunnable);
     }
 
@@ -333,8 +334,7 @@ public class Speaker {
             queue.clear();
             queue.add(content);
         } else {
-            talking = true;
-            speakContent = content;
+            queue.add(content);
             handler.post(speakRunnable);
             if (statusChangeListener != null) {
                 statusChangeListener.speakerStart();
@@ -370,14 +370,12 @@ public class Speaker {
 
         @Override
         public void onCompleted(SpeechError speechError) {
-            String s = queue.poll();
-            if (s == null) {
+            if (queue.isEmpty()) {
                 talking = false;
                 if (statusChangeListener != null) {
                     statusChangeListener.speakerStop();
                 }
             } else {
-                speakContent = s;
                 handler.post(speakRunnable);
             }
         }
