@@ -8,6 +8,7 @@ import android.graphics.Matrix;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.YuvImage;
+import android.hardware.Camera;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.Log;
@@ -458,7 +459,8 @@ public class BdFaceSDK implements FaceSDK {
                                 rectfs[i].right = centerX + halfWidth;
                                 rectfs[i].top = centerY - halfHeight;
                                 rectfs[i].bottom = centerY + halfHeight;
-                                if (Config.isMirror() ^ Config.getPreviewCameraId() == 1) {
+                                //noinspection deprecation
+                                if (Config.isMirror() ^ Config.getPreviewCameraId() == Camera.getNumberOfCameras() - 1) {
                                     rectfs[i].left = detectFaceCallback.getMeasuredWidth() - rectfs[i].left;
                                     rectfs[i].right = detectFaceCallback.getMeasuredWidth() - rectfs[i].right;
                                 }
