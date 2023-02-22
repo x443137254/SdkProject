@@ -59,8 +59,6 @@ public class PreViewFragment extends Fragment implements FaceSDK.DetectFaceCallb
 
     private void initCamera() {
         final int rbgCameraId = FaceSDK.Config.getPreviewCameraId();
-        //noinspection deprecation
-        final int cameraNum = Camera.getNumberOfCameras();
         mCameraRGBPreview.openCamera(rbgCameraId);//Camera.CameraInfo.CAMERA_FACING_BACK
         mCameraRGBPreview.setListener(data -> {
             if (rgbListener != null) rgbListener.change();
@@ -83,7 +81,10 @@ public class PreViewFragment extends Fragment implements FaceSDK.DetectFaceCallb
 //                mCameraIRPreview.startPreview(true);
 //            }
 //        },1000);
-        if (FaceSDK.Config.getCameraNum() > 2) {
+
+        //noinspection deprecation
+        final int cameraNum = Camera.getNumberOfCameras();
+        if (FaceSDK.Config.getCameraNum() > 1) {
             mCameraIRPreview.openCamera(rbgCameraId == cameraNum - 2 ? cameraNum - 1 : cameraNum - 2);//Camera.CameraInfo.CAMERA_FACING_FRONT
             mCameraIRPreview.setListener(data -> {
                 if (irListener != null) irListener.change();
