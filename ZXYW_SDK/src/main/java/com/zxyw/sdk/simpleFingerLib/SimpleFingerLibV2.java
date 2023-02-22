@@ -23,7 +23,6 @@ public class SimpleFingerLibV2 {
     private int index = 0;
     private DeviceDelegate device;
     private final Handler handler;
-    private boolean open;
 
     private enum ActionType {DETECT, ENROLL, CLOSE}
 
@@ -49,34 +48,31 @@ public class SimpleFingerLibV2 {
         thread.start();
         handler = new Handler(thread.getLooper());
         buff = new byte[1024];
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                while (device == null || device.getSerialPort() == null) {
-                    SystemClock.sleep(1000);
+        new Thread(() -> {
+            while (device == null || device.getSerialPort() == null) {
+                SystemClock.sleep(1000);
+            }
+            byte[] buff = new byte[1024 * 10];
+            while (true) {
+                int len = 0;
+                try {
+                    len = device.getSerialPort().getInputStream().read(buff);
+                } catch (IOException ignore) {
                 }
-                byte[] buff = new byte[1024 * 10];
-                while (true) {
-                    int len = 0;
+                if ((len == 1 && buff[0] == 0) || len > 1000) {
+                    index = 0;
+                } else if (len > 0) {
                     try {
-                        len = device.getSerialPort().getInputStream().read(buff);
-                    } catch (IOException ignore) {
-                    }
-                    if ((len == 1 && buff[0] == 0) || len > 1000) {
+                        System.arraycopy(buff, 0, SimpleFingerLibV2.this.buff, index, len);
+                        index += len;
+                    } catch (Exception ignore) {
                         index = 0;
-                    } else if (len > 0) {
-                        try {
-                            System.arraycopy(buff, 0, SimpleFingerLibV2.this.buff, index, len);
-                            index += len;
-                        } catch (Exception ignore) {
-                            index = 0;
-                        }
                     }
-                    String s = FingerTools.bytes2string(Arrays.copyOfRange(buff, 0, len));
-                    MyLog.d(TAG, "receive data(index=" + index + "): " + s);
-                    if (index > 0) {
-                        parse();
-                    }
+                }
+                String s = FingerTools.bytes2string(Arrays.copyOfRange(buff, 0, len));
+                MyLog.d(TAG, "receive data(index=" + index + "): " + s);
+                if (index > 0) {
+                    parse();
                 }
             }
         }).start();
@@ -85,34 +81,34 @@ public class SimpleFingerLibV2 {
     public void detect() {
         index = 0;
         type = ActionType.DETECT;
-        send(CmdFactory.cancel());
+        openFingerAfterCancel();
     }
 
     public void enroll() {
         index = 0;
         type = ActionType.ENROLL;
-        if (open) {
-            send(CmdFactory.cancel());
-        } else {
-            openFinger();
-        }
+        device.closePower();
+        handler.removeCallbacksAndMessages(null);
+        handler.postDelayed(this::openFingerAfterCancel, 100);
     }
 
-    private void openFinger() {
+    private void openFingerAfterCancel() {
         device.openPower();
-        open = true;
         MyLog.d(TAG, "turn on finger power");
         SystemClock.sleep(200);
         index = 0;
         send(CmdFactory.cancel());
     }
 
-    public void closeFinger() {
+
+    public void closeFingerAfterCancel() {
         index = 0;
         type = ActionType.CLOSE;
-        if (open) {
-            send(CmdFactory.cancel());
-        }
+        send(CmdFactory.cancel());
+    }
+
+    public void closeFingerDirectly() {
+        device.closePower();
     }
 
     private void parse() {
@@ -149,15 +145,14 @@ public class SimpleFingerLibV2 {
                     send(CmdFactory.getData());
                 } else if (type == ActionType.ENROLL) {
                     deleteAll();
-                }else if (device != null){
+                } else if (device != null) {
                     device.closePower();
-                    open = false;
                     MyLog.d(TAG, "turn off finger power");
                 }
             } else {//失败，无法取消就断电
                 String s = FingerTools.bytes2string(Arrays.copyOfRange(buff, offset + 6, offset + 8));
                 MyLog.d(TAG, "cancel failed：" + s);
-                closeFinger();
+                closeFingerAfterCancel();
             }
         } else if (buff[offset + 2] == Command.CLEAR[0] && buff[offset + 3] == Command.CLEAR[1]) {//清除记录
             if ((buff[offset + 6] + buff[offset + 7]) == 0) {//成功，开始录入指纹
@@ -166,7 +161,7 @@ public class SimpleFingerLibV2 {
             } else {//失败，断电
                 String s = FingerTools.bytes2string(Arrays.copyOfRange(buff, offset + 6, offset + 8));
                 MyLog.d(TAG, "clear all failed：" + s);
-                closeFinger();
+                closeFingerAfterCancel();
             }
         } else if (buff[offset + 2] == Command.ENROLL[0] && buff[offset + 3] == Command.ENROLL[1]) {//录入指纹
             if ((buff[offset + 6] + buff[offset + 7]) == 0) {//成功，解析返回值
@@ -187,7 +182,7 @@ public class SimpleFingerLibV2 {
                     getEnrollTemplate();
                 } else {
                     fingerEnrollListener.enrollStep(FingerEnrollListener.Step.ERROR_RETRY, null);
-                    closeFinger();
+                    closeFingerAfterCancel();
                 }
             } else {//失败，关闭电源
                 String s = FingerTools.bytes2string(Arrays.copyOfRange(buff, offset + 6, offset + 8));
@@ -195,7 +190,7 @@ public class SimpleFingerLibV2 {
                 if (fingerEnrollListener != null) {
                     fingerEnrollListener.enrollStep(FingerEnrollListener.Step.ERROR, null);
                 }
-                closeFinger();
+                closeFingerAfterCancel();
             }
         } else if (buff[offset + 2] == Command.READ[0] && buff[offset + 3] == Command.READ[1]) {//读取录入的指纹模板数据
             if ((buff[offset + 6] + buff[offset + 7]) == 0) {//成功，校验后接口返回模板数据，继续取指纹模板
@@ -214,7 +209,7 @@ public class SimpleFingerLibV2 {
                     fingerEnrollListener.enrollStep(FingerEnrollListener.Step.ERROR, null);
                 }
             }
-            closeFinger();
+            closeFingerAfterCancel();
         }
     }
 
@@ -230,48 +225,21 @@ public class SimpleFingerLibV2 {
         send(CmdFactory.clear());
     }
 
-//    public void reboot() {
-//        closeFinger();
-//        handler.postDelayed(new Runnable() {
-//            @Override
-//            public void run() {
-//                openFinger();
-//            }
-//        }, 500);
-//    }
-//
-//    private final Runnable enrollRunnable = new Runnable() {
-//        @Override
-//        public void run() {
-//            if (type == Type.ENROLL) {
-//                FingerDebugUtil.getInstance().debug("send cmd : enroll");
-//                SimpleFingerLibV2.this.send(CmdFactory.enroll());
-//            } else {
-//                type = Type.ENROLL;
-//                FingerDebugUtil.getInstance().debug("send cmd : cancel");
-//                SimpleFingerLibV2.this.send(CmdFactory.cancel());
-//            }
-//        }
-//    };
-
     private synchronized void send(final byte[] data) {
         if (device == null || device.getSerialPort() == null) return;
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
-                String s = FingerTools.bytes2string(data);
-                MyLog.d(TAG, "the data really to send：" + s);
-                try {
-                    final OutputStream outputStream = device.getSerialPort().getOutputStream();
-                    if (outputStream != null) {
-                        outputStream.write(data);
-                        outputStream.flush();
-                    } else {
-                        MyLog.d(TAG, "outputStream is null");
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
+        handler.post(() -> {
+            String s = FingerTools.bytes2string(data);
+            MyLog.d(TAG, "the data really to send：" + s);
+            try {
+                final OutputStream outputStream = device.getSerialPort().getOutputStream();
+                if (outputStream != null) {
+                    outputStream.write(data);
+                    outputStream.flush();
+                } else {
+                    MyLog.d(TAG, "outputStream is null");
                 }
+            } catch (IOException e) {
+                e.printStackTrace();
             }
         });
     }
