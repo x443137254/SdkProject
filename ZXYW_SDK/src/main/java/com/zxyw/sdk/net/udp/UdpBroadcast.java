@@ -25,7 +25,7 @@ public class UdpBroadcast {
         running = true;
         receiveThread = new Thread(() -> {
             if (listener != null) {
-                final byte[] buff = new byte[1024];
+                final byte[] buff = new byte[1024 * 100];
                 DatagramPacket recPacket;
                 while (running) {
                     recPacket = new DatagramPacket(buff, buff.length);

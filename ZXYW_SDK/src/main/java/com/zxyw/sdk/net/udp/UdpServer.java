@@ -37,10 +37,10 @@ public class UdpServer {
         if (start) return;
         service.execute(() -> {
             start = true;
+            byte[] buff = new byte[1024 * 100];
             while (start) {
                 try {
                     if (socket == null) break;
-                    byte[] buff = new byte[1024];
                     DatagramPacket recPacket = new DatagramPacket(buff, buff.length);
                     socket.receive(recPacket);
                     if (listener != null) {
