@@ -64,19 +64,9 @@ public class UdpServer {
             socket.close();
             socket = null;
         }
-        service.shutdown();
-        service = null;
+        if (service != null) {
+            service.shutdown();
+            service = null;
+        }
     }
-
-//    public void send(byte[] data, SocketAddress address) {
-//        service.submit(() -> {
-//            if (socket != null) {
-//                try {
-//                    socket.send(new DatagramPacket(data, data.length, address));
-//                } catch (IOException e) {
-//                    e.printStackTrace();
-//                }
-//            }
-//        });
-//    }
 }
