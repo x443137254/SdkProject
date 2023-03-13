@@ -503,7 +503,7 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
     }
 
     @Override
-    public void addFace(String photoPath, AddFaceCallback addFaceCallback) {
+    public void addFace(Context context, String photoPath, AddFaceCallback addFaceCallback) {
         File imageFile = new File(photoPath);
         if (!imageFile.exists()) {
             if (addFaceCallback != null) {
@@ -745,7 +745,7 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
     }
 
     @Override
-    public String compare(String photoPath) {
+    public String compare(Context context, String photoPath) {
         if (mFacePassHandler == null) {
             MyLog.d(TAG,"compare failed! SDK has not init");
             return null;

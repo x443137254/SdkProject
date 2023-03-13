@@ -30,7 +30,7 @@ public interface FaceSDK extends CameraDataListener {
      * @param photoPath 照片路径
      * @param callback  添加结果回调方法
      */
-    void addFace(String photoPath, AddFaceCallback callback);
+    void addFace(Context context, String photoPath, AddFaceCallback callback);
 
     /**
      * 删除人脸
@@ -91,7 +91,7 @@ public interface FaceSDK extends CameraDataListener {
      * @param photoPath 比对的照片
      * @return 比对结果，找到相似人脸返回对应token，否则返回null
      */
-    String compare(String photoPath);
+    String compare(Context context, String photoPath);
 
     void setRecognizeCallback(RecognizeCallback recognizeCallback);
 

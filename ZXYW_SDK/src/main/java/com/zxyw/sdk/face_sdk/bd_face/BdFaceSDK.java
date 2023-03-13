@@ -50,7 +50,9 @@ import java.io.InputStreamReader;
 import java.io.LineNumberReader;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
@@ -84,7 +86,6 @@ public class BdFaceSDK implements FaceSDK {
     private float scaleH;
     private DetectFaceCallback detectFaceCallback;
     private RecognizeCallback recognizeCallback;
-    private AddFaceCallback addFaceCallback;
 
     private List<String> groupList;
     private String currentGroup;
@@ -234,15 +235,13 @@ public class BdFaceSDK implements FaceSDK {
      *
      * @param detectBean 经过快速人脸检测后的数据包，刷人脸时为null，注册人脸时为照片数据
      */
-    private void featureFace(final DetectBean detectBean, final boolean regFace) {
+    private void featureFace(final DetectBean detectBean) {
         if (!init) return;
         if (featureThreadBusy) {
-            if (!regFace) {
-                if (detectBean != null && detectBean.rgbImage != null) {
-                    detectBean.rgbImage.destory();
-                }
-                return;
+            if (detectBean != null && detectBean.rgbImage != null) {
+                detectBean.rgbImage.destory();
             }
+            return;
         }
         featureThread.execute(() -> {
             featureThreadBusy = true;
@@ -252,13 +251,13 @@ public class BdFaceSDK implements FaceSDK {
                     || detectBean.rgbImage == null
                     || detectBean.fastFaceInfos == null
                     || detectBean.fastFaceInfos.length == 0) {
-                if (regFace) {
-                    if (addFaceCallback != null) {
-                        addFaceCallback.addResult(false, "没有照片或者照片没有人脸数据");
-                        addFaceCallback = null;
-                    }
-                    MyLog.d(TAG, "add face failed! no photo or no faces");
-                }
+//                if (regFace) {
+//                    if (addFaceCallback != null) {
+//                        addFaceCallback.addResult(false, "没有照片或者照片没有人脸数据");
+//                        addFaceCallback = null;
+//                    }
+//                    MyLog.d(TAG, "add face failed! no photo or no faces");
+//                }
 //                else if (recognizeCallback != null) {
 //                    recognizeCallback.recognizeResult(false, "检测失败");
 //                }
@@ -282,20 +281,20 @@ public class BdFaceSDK implements FaceSDK {
                 if (rgbScore < SingleBaseConfig.getBaseConfig().getRgbLiveScore()) {
                     MyLog.d(TAG, "活体检测失败: rgb score=" + rgbScore);
                     detectBean.rgbImage.destory();
-                    if (regFace) {
-                        if (addFaceCallback != null) {
-                            addFaceCallback.addResult(false, "活体检测失败");
-                            addFaceCallback = null;
-                        }
-                        MyLog.d(TAG, "add face failed! liveness detect failed");
-                    }
+//                    if (regFace) {
+//                        if (addFaceCallback != null) {
+//                            addFaceCallback.addResult(false, "活体检测失败");
+//                            addFaceCallback = null;
+//                        }
+//                        MyLog.d(TAG, "add face failed! liveness detect failed");
+//                    }
 //                    else if (recognizeCallback != null) {
 //                        recognizeCallback.recognizeResult(false, "检测失败");
 //                    }
                     featureThreadBusy = false;
                     return;
                 }
-                if (!regFace && detectBean.irData != null) {
+                if (detectBean.irData != null) {
                     BDFaceImageInstance irImage = new BDFaceImageInstance(detectBean.irData, Config.getCameraHeight(),
                             Config.getCameraWidth(), BDFaceSDKCommon.BDFaceImageType.BDFACE_IMAGE_TYPE_YUV_NV21,
                             SingleBaseConfig.getBaseConfig().getNirDetectDirection(),
@@ -335,69 +334,42 @@ public class BdFaceSDK implements FaceSDK {
                         detectBean.rgbImage, faceInfos[0].landmarks, feature);
                 detectBean.rgbImage.destory();
                 if ((int) featureSize == FEATURE_SIZE / 4) {
-                    if (regFace) {//注册人脸
-                        int id = db.insert(feature, getCurrentGroup());
-                        faceFeature.featurePush(db.queryAll());
-                        if (addFaceCallback != null) {
-                            addFaceCallback.addResult(true, String.valueOf(id));
-                            addFaceCallback = null;
-                        }
-                        MyLog.d(TAG, "add face success!");
-                    } else {
-                        ArrayList<Feature> featureResult = faceFeature.featureSearch(feature,
-                                BDFaceSDKCommon.FeatureType.BDFACE_FEATURE_TYPE_LIVE_PHOTO, 1, true);
-                        if (featureResult != null && featureResult.size() > 0) {
-                            Feature topFeature = featureResult.get(0);
-                            if (topFeature != null && topFeature.getScore() > SingleBaseConfig.getBaseConfig().getLiveThreshold()) {
-                                Feature query = db.query(topFeature.getId(), getCurrentGroup());
-                                if (query != null) {
-                                    if (recognizeCallback != null) {
-                                        recognizeCallback.recognizeResult(true, String.valueOf(query.getId()));
-                                    }
-                                    MyLog.d(TAG, "recognize success! query id=" + query.getId());
-                                } else {
-                                    if (recognizeCallback != null) {
-                                        recognizeCallback.recognizeResult(false, "人脸未注册");
-                                    }
-                                    MyLog.d(TAG, "recognize success! query failed");
+                    ArrayList<Feature> featureResult = faceFeature.featureSearch(feature,
+                            BDFaceSDKCommon.FeatureType.BDFACE_FEATURE_TYPE_LIVE_PHOTO, 1, true);
+                    if (featureResult != null && featureResult.size() > 0) {
+                        Feature topFeature = featureResult.get(0);
+                        if (topFeature != null && topFeature.getScore() > SingleBaseConfig.getBaseConfig().getLiveThreshold()) {
+                            Feature query = db.query(topFeature.getId(), getCurrentGroup());
+                            if (query != null) {
+                                if (recognizeCallback != null) {
+                                    recognizeCallback.recognizeResult(true, String.valueOf(query.getId()));
                                 }
+                                MyLog.d(TAG, "recognize success! query id=" + query.getId());
                             } else {
                                 if (recognizeCallback != null) {
                                     recognizeCallback.recognizeResult(false, "人脸未注册");
                                 }
-                                MyLog.d(TAG, "recognize success! featureSearch score=" +
-                                        (topFeature == null ? 0 : topFeature.getScore()));
+                                MyLog.d(TAG, "recognize success! query failed");
                             }
                         } else {
                             if (recognizeCallback != null) {
                                 recognizeCallback.recognizeResult(false, "人脸未注册");
                             }
-                            MyLog.d(TAG, "recognize success! featureSearch failed");
+                            MyLog.d(TAG, "recognize success! featureSearch score=" +
+                                    (topFeature == null ? 0 : topFeature.getScore()));
                         }
+                    } else {
+                        if (recognizeCallback != null) {
+                            recognizeCallback.recognizeResult(false, "人脸未注册");
+                        }
+                        MyLog.d(TAG, "recognize success! featureSearch failed");
                     }
                     featureThreadBusy = false;
                     return;
                 }
-                if (regFace) {
-                    if (addFaceCallback != null) {
-                        addFaceCallback.addResult(false, "图片提取特征值失败");
-                        addFaceCallback = null;
-                    }
-                    MyLog.d(TAG, "add face failed! face feature size error");
-                } else {
-//                    if (recognizeCallback != null) {
-//                        recognizeCallback.recognizeResult(false, "人脸识别失败");
-//                    }
-                    MyLog.d(TAG, "recognize failed! feature failed");
-                }
+                MyLog.d(TAG, "recognize failed! feature failed");
                 featureThreadBusy = false;
             } catch (Exception e) {
-                if (regFace) {
-                    if (addFaceCallback != null) {
-                        addFaceCallback.addResult(false, "图片提取发生错误");
-                        addFaceCallback = null;
-                    }
-                }
                 MyLog.d(TAG, "Face detect error! " + e.toString());
                 featureThreadBusy = false;
             }
@@ -406,112 +378,79 @@ public class BdFaceSDK implements FaceSDK {
 
     /**
      * 查找人脸
-     *
-     * @param imageInstance 注册人脸时传入照片对象，否则传入null使用相机回调帧
      */
-    private void trackFace(final BDFaceImageInstance imageInstance) {
+    private void trackFace() {
         if (!init) return;
-        if (trackThreadBusy && imageInstance == null) return;
+        if (trackThreadBusy) return;
         trackThread.execute(() -> {
             trackThreadBusy = true;
-            boolean regFace = imageInstance != null;
             BDFaceImageInstance rgbInstance = null;
             try {
-                if (!regFace) {
-                    rgbInstance = new BDFaceImageInstance(cameraFrame.rgbData,
-                            Config.getCameraHeight(), Config.getCameraWidth(),
-                            BDFaceSDKCommon.BDFaceImageType.BDFACE_IMAGE_TYPE_YUV_NV21,
-                            SingleBaseConfig.getBaseConfig().getRgbDetectDirection(),
-                            SingleBaseConfig.getBaseConfig().getMirrorDetectRGB());
-                    // 判断暗光恢复
-                    if (SingleBaseConfig.getBaseConfig().isDarkEnhance()) {
-                        rgbInstance = faceDarkEnhance.faceDarkEnhance(rgbInstance);
-                    }
+                rgbInstance = new BDFaceImageInstance(cameraFrame.rgbData,
+                        Config.getCameraHeight(), Config.getCameraWidth(),
+                        BDFaceSDKCommon.BDFaceImageType.BDFACE_IMAGE_TYPE_YUV_NV21,
+                        SingleBaseConfig.getBaseConfig().getRgbDetectDirection(),
+                        SingleBaseConfig.getBaseConfig().getMirrorDetectRGB());
+                // 判断暗光恢复
+                if (SingleBaseConfig.getBaseConfig().isDarkEnhance()) {
+                    rgbInstance = faceDarkEnhance.faceDarkEnhance(rgbInstance);
                 }
                 // 快速检测获取人脸信息
-                FaceInfo[] faceInfos = regFace ?
-                        faceDetect.track(BDFaceSDKCommon.DetectType.DETECT_VIS,
-                                BDFaceSDKCommon.AlignType.BDFACE_ALIGN_TYPE_RGB_FAST, imageInstance) :
-                        faceDetect.track(BDFaceSDKCommon.DetectType.DETECT_VIS,
-                                BDFaceSDKCommon.AlignType.BDFACE_ALIGN_TYPE_RGB_FAST, rgbInstance);
+                FaceInfo[] faceInfos = faceDetect.track(BDFaceSDKCommon.DetectType.DETECT_VIS,
+                        BDFaceSDKCommon.AlignType.BDFACE_ALIGN_TYPE_RGB_FAST, rgbInstance);
                 Log.d(TAG, "trackFace: face num: " + (faceInfos == null ? 0 : faceInfos.length));
                 if (faceInfos != null && faceInfos.length > 0) {
-                    if (regFace) {
-                        DetectBean bean = new DetectBean();
-                        bean.rgbImage = imageInstance;
-                        bean.fastFaceInfos = faceInfos;
-                        featureFace(bean, true);
-                    } else {
-                        if (detectFaceCallback != null) {//绘制人脸框
-                            RectF[] rectfs = new RectF[faceInfos.length];
-                            if (scaleW == 0) {
-                                boolean p = Config.getPreviewOrientation() % 180 == 0;
-                                scaleW = detectFaceCallback.getMeasuredWidth() * 1.0f / (p ? Config.getCameraWidth() : Config.getCameraHeight());
-                                scaleH = detectFaceCallback.getMeasuredHeight() * 1.0f / (p ? Config.getCameraHeight() : Config.getCameraWidth());
-                            }
-                            for (int i = 0; i < faceInfos.length; i++) {
-                                rectfs[i] = new RectF();
-                                float halfWidth = faceInfos[i].width * scaleW / 2;
-                                float halfHeight = faceInfos[i].height * scaleH / 2;
-                                float centerX = faceInfos[i].centerX * scaleW;
-                                float centerY = faceInfos[i].centerY * scaleH;
-                                rectfs[i].left = centerX - halfWidth;
-                                rectfs[i].right = centerX + halfWidth;
-                                rectfs[i].top = centerY - halfHeight;
-                                rectfs[i].bottom = centerY + halfHeight;
-                                //noinspection deprecation
-                                if (Config.isMirror() ^ Config.getPreviewCameraId() == Camera.getNumberOfCameras() - 1) {
-                                    rectfs[i].left = detectFaceCallback.getMeasuredWidth() - rectfs[i].left;
-                                    rectfs[i].right = detectFaceCallback.getMeasuredWidth() - rectfs[i].right;
-                                }
-                            }
-                            detectFaceCallback.onDetectFace(rectfs);
+                    if (detectFaceCallback != null) {//绘制人脸框
+                        RectF[] rectfs = new RectF[faceInfos.length];
+                        if (scaleW == 0) {
+                            boolean p = Config.getPreviewOrientation() % 180 == 0;
+                            scaleW = detectFaceCallback.getMeasuredWidth() * 1.0f / (p ? Config.getCameraWidth() : Config.getCameraHeight());
+                            scaleH = detectFaceCallback.getMeasuredHeight() * 1.0f / (p ? Config.getCameraHeight() : Config.getCameraWidth());
                         }
-                        if (faceInfos[0].width > 120) {
-                            DetectBean detectBean = new DetectBean();
-                            detectBean.rgbImage = rgbInstance;
-                            detectBean.fastFaceInfos = faceInfos;
-                            detectBean.irData = cameraFrame.irData;
-                            featureFace(detectBean, false);
-                        } else {
-                            rgbInstance.destory();
-                            if (recognizeCallback != null) {
-                                recognizeCallback.recognizeResult(false, "请再靠近一些");
+                        for (int i = 0; i < faceInfos.length; i++) {
+                            rectfs[i] = new RectF();
+                            float halfWidth = faceInfos[i].width * scaleW / 2;
+                            float halfHeight = faceInfos[i].height * scaleH / 2;
+                            float centerX = faceInfos[i].centerX * scaleW;
+                            float centerY = faceInfos[i].centerY * scaleH;
+                            rectfs[i].left = centerX - halfWidth;
+                            rectfs[i].right = centerX + halfWidth;
+                            rectfs[i].top = centerY - halfHeight;
+                            rectfs[i].bottom = centerY + halfHeight;
+                            //noinspection deprecation
+                            if (Config.isMirror() ^ Config.getPreviewCameraId() == Camera.getNumberOfCameras() - 1) {
+                                rectfs[i].left = detectFaceCallback.getMeasuredWidth() - rectfs[i].left;
+                                rectfs[i].right = detectFaceCallback.getMeasuredWidth() - rectfs[i].right;
                             }
-                            MyLog.d(TAG, "recognize false! face too small");
                         }
+                        detectFaceCallback.onDetectFace(rectfs);
                     }
-                } else {
-                    if (regFace) {
-                        imageInstance.destory();
-                        if (addFaceCallback != null) {
-                            addFaceCallback.addResult(false, "没有检测到人脸");
-                            addFaceCallback = null;
-                        }
-                        MyLog.d(TAG, "add face failed! no faces");
+                    if (faceInfos[0].width > 120) {
+                        DetectBean detectBean = new DetectBean();
+                        detectBean.rgbImage = rgbInstance;
+                        detectBean.fastFaceInfos = faceInfos;
+                        detectBean.irData = cameraFrame.irData;
+                        featureFace(detectBean);
                     } else {
                         rgbInstance.destory();
-                        if (detectFaceCallback != null) {
-                            detectFaceCallback.onDetectFace(null);
+                        if (recognizeCallback != null) {
+                            recognizeCallback.recognizeResult(false, "请再靠近一些");
                         }
+                        MyLog.d(TAG, "recognize false! face too small");
+                    }
+                } else {
+                    rgbInstance.destory();
+                    if (detectFaceCallback != null) {
+                        detectFaceCallback.onDetectFace(null);
                     }
                 }
                 trackThreadBusy = false;
             } catch (Exception e) {
                 MyLog.d(TAG, e.toString());
-                if (regFace) {
-                    imageInstance.destory();
-                    if (addFaceCallback != null) {
-                        addFaceCallback.addResult(false, "检测人脸发生错误");
-                        addFaceCallback = null;
-                    }
-                    MyLog.d(TAG, "add face failed! " + e.toString());
-                } else {
-                    if (rgbInstance != null) {
-                        rgbInstance.destory();
-                    }
-                    MyLog.d(TAG, "track face exception occurred! " + e.toString());
+                if (rgbInstance != null) {
+                    rgbInstance.destory();
                 }
+                MyLog.d(TAG, "track face exception occurred! " + e.toString());
                 trackThreadBusy = false;
             }
         });
@@ -657,13 +596,106 @@ public class BdFaceSDK implements FaceSDK {
     }
 
     @Override
-    public synchronized void addFace(final String photoPath, final AddFaceCallback callback) {
+    public synchronized void addFace(Context context, final String photoPath, final AddFaceCallback callback) {
         if (!init) {
             if (callback != null) {
                 callback.addResult(false, "SDK未初始化");
             }
             return;
         }
+        BDFaceInstance bdFaceInstance = new BDFaceInstance();
+        bdFaceInstance.creatInstance();
+        FaceDetect faceDetect = new FaceDetect(bdFaceInstance);
+        BDFaceSDKConfig config = new BDFaceSDKConfig();
+        config.maxDetectNum = 1;
+        config.minFaceSize = SingleBaseConfig.getBaseConfig().getMinimumFace();
+        config.notRGBFaceThreshold = SingleBaseConfig.getBaseConfig().getFaceThreshold();
+        config.notNIRFaceThreshold = SingleBaseConfig.getBaseConfig().getFaceThreshold();
+        config.isAttribute = SingleBaseConfig.getBaseConfig().isAttribute();
+        config.isCheckBlur = config.isOcclusion
+                = config.isIllumination = config.isHeadPose
+                = SingleBaseConfig.getBaseConfig().isQualityControl();
+        faceDetect.loadConfig(config);
+        final Map<String, Boolean> initModelResult = new HashMap<>();
+        initModelResult.put("track", false);
+        initModelResult.put("rgb", false);
+        initModelResult.put("Quality", false);
+        initModelResult.put("AttrEmo", false);
+        initModelResult.put("Best", false);
+        faceDetect.initModel(context,
+                GlobalSet.DETECT_VIS_MODEL,
+                GlobalSet.ALIGN_TRACK_MODEL,
+                BDFaceSDKCommon.DetectType.DETECT_VIS,
+                BDFaceSDKCommon.AlignType.BDFACE_ALIGN_TYPE_RGB_FAST,
+                (code, response) -> {
+                    if (code == 0) {
+                        initModelResult.put("track", true);
+                        MyLog.d(TAG, "init track model success!");
+                        trackFace(context, photoPath, faceDetect, initModelResult, callback);
+                    } else {
+                        MyLog.d(TAG, "init track model failed! " + response);
+                    }
+                });
+        faceDetect.initModel(context,
+                GlobalSet.DETECT_VIS_MODEL,
+                GlobalSet.ALIGN_RGB_MODEL,
+                BDFaceSDKCommon.DetectType.DETECT_VIS,
+                BDFaceSDKCommon.AlignType.BDFACE_ALIGN_TYPE_RGB_ACCURATE,
+                (code, response) -> {
+                    if (code == 0) {
+                        initModelResult.put("rgb", true);
+                        MyLog.d(TAG, "init rgb model success!");
+                        trackFace(context, photoPath, faceDetect, initModelResult, callback);
+                    } else {
+                        MyLog.d(TAG, "init rgb model failed! " + response);
+                    }
+                });
+        faceDetect.initQuality(context,
+                GlobalSet.BLUR_MODEL,
+                GlobalSet.OCCLUSION_MODEL, (code, response) -> {
+                    if (code == 0) {
+                        initModelResult.put("Quality", true);
+                        MyLog.d(TAG, "init Quality model success!");
+                        trackFace(context, photoPath, faceDetect, initModelResult, callback);
+                    } else {
+                        MyLog.d(TAG, "init Quality model failed! " + response);
+                    }
+                });
+        faceDetect.initAttrEmo(context, GlobalSet.ATTRIBUTE_MODEL, GlobalSet.EMOTION_MODEL, (code, response) -> {
+            if (code == 0) {
+                initModelResult.put("AttrEmo", true);
+                MyLog.d(TAG, "init AttrEmo model success!");
+                trackFace(context, photoPath, faceDetect, initModelResult, callback);
+            } else {
+                MyLog.d(TAG, "init AttrEmo model failed! " + response);
+            }
+        });
+        faceDetect.initBestImage(context, GlobalSet.BEST_IMAGE, (code, response) -> {
+            if (code == 0) {
+                initModelResult.put("Best", true);
+                MyLog.d(TAG, "init Best face model success!");
+                trackFace(context, photoPath, faceDetect, initModelResult, callback);
+            } else {
+                MyLog.d(TAG, "init Best face model failed! " + response);
+            }
+        });
+    }
+
+    private void trackFace(Context context,
+                           String photoPath,
+                           FaceDetect faceDetect,
+                           Map<String, Boolean> initModelResult,
+                           AddFaceCallback callback) {
+        Boolean result = initModelResult.get("track");
+        if (result == null || !result) return;
+        result = initModelResult.get("rgb");
+        if (result == null || !result) return;
+        result = initModelResult.get("Quality");
+        if (result == null || !result) return;
+        result = initModelResult.get("AttrEmo");
+        if (result == null || !result) return;
+        result = initModelResult.get("Best");
+        if (result == null || !result) return;
         if (TextUtils.isEmpty(photoPath)) {
             if (callback != null) {
                 callback.addResult(false, "图片路径错误");
@@ -679,9 +711,103 @@ public class BdFaceSDK implements FaceSDK {
             MyLog.d(TAG, "add face failed! bitmap decodeFile error");
             return;
         }
-        BDFaceImageInstance image = new BDFaceImageInstance(bitmap);
-        addFaceCallback = callback;
-        trackFace(image);
+        final BDFaceImageInstance image = new BDFaceImageInstance(bitmap);
+        final FaceInfo[] fastFaceInfos = faceDetect.track(BDFaceSDKCommon.DetectType.DETECT_VIS,
+                BDFaceSDKCommon.AlignType.BDFACE_ALIGN_TYPE_RGB_FAST, image);
+        if (fastFaceInfos != null && fastFaceInfos.length > 0) {
+            DetectBean bean = new DetectBean();
+            bean.rgbImage = image;
+            bean.fastFaceInfos = fastFaceInfos;
+            if (bean.fastFaceInfos.length == 0) {
+                MyLog.d(TAG, "照片没有人脸数据");
+                faceDetect.uninitModel();
+                if (callback != null) {
+                    callback.addResult(false, "照片没有人脸数据");
+                }
+                return;
+            }
+            BDFaceDetectListConf bdFaceDetectListConfig = new BDFaceDetectListConf();
+            bdFaceDetectListConfig.usingQuality = bdFaceDetectListConfig.usingHeadPose
+                    = SingleBaseConfig.getBaseConfig().isQualityControl();
+            bdFaceDetectListConfig.usingBestImage = SingleBaseConfig.getBaseConfig().isBestImage();
+            final FaceInfo[] faceInfos = faceDetect.detect(BDFaceSDKCommon.DetectType.DETECT_VIS,
+                    BDFaceSDKCommon.AlignType.BDFACE_ALIGN_TYPE_RGB_ACCURATE,
+                    bean.rgbImage, bean.fastFaceInfos, bdFaceDetectListConfig);
+            float rgbScore = faceLiveness.silentLive(BDFaceSDKCommon.LiveType.BDFACE_SILENT_LIVE_TYPE_RGB,
+                    bean.rgbImage, faceInfos[0].landmarks);
+            if (rgbScore < SingleBaseConfig.getBaseConfig().getRgbLiveScore()) {
+                MyLog.d(TAG, "活体检测失败: rgb score=" + rgbScore);
+                bean.rgbImage.destory();
+                faceDetect.uninitModel();
+                if (callback != null) {
+                    callback.addResult(false, "活体检测失败");
+                }
+                return;
+            }
+            final byte[] feature = new byte[512];
+            final FaceFeature faceFeature = new FaceFeature();
+            faceFeature.initModel(context,
+                    GlobalSet.RECOGNIZE_IDPHOTO_MODEL,
+                    GlobalSet.RECOGNIZE_VIS_MODEL,
+                    GlobalSet.RECOGNIZE_NIR_MODEL,
+                    GlobalSet.RECOGNIZE_RGBD_MODEL,
+                    (code, response) -> {
+                        if (code == 0) {
+                            MyLog.d(TAG, "init Feature model success!");
+                            float featureSize = faceFeature.feature(
+                                    BDFaceSDKCommon.FeatureType.BDFACE_FEATURE_TYPE_LIVE_PHOTO,
+                                    bean.rgbImage, faceInfos[0].landmarks, feature);
+                            if ((int) featureSize == FEATURE_SIZE / 4) {
+
+                                ArrayList<Feature> featureResult = faceFeature.featureSearch(feature,
+                                        BDFaceSDKCommon.FeatureType.BDFACE_FEATURE_TYPE_LIVE_PHOTO, 1, true);
+                                if (featureResult != null && featureResult.size() > 0) {
+                                    Feature topFeature = featureResult.get(0);
+                                    if (topFeature != null && topFeature.getScore() > SingleBaseConfig.getBaseConfig().getLiveThreshold()) {
+                                        Feature query = db.query(topFeature.getId(), getCurrentGroup());
+                                        if (query != null) {
+                                            faceDetect.uninitModel();
+                                            bean.rgbImage.destory();
+                                            faceFeature.uninitModel();
+                                            MyLog.d(TAG, "人脸添加失败，照片已存在");
+                                            if (callback != null) {
+                                                callback.addResult(false, "人脸添加失败，照片已存在");
+                                            }
+                                            return;
+                                        }
+                                    }
+                                }
+
+                                int id = db.insert(feature, getCurrentGroup());
+                                faceFeature.featurePush(db.queryAll());
+                                MyLog.d(TAG, "人脸添加成功！");
+                                if (callback != null) {
+                                    callback.addResult(true, String.valueOf(id));
+                                }
+                            } else {
+                                MyLog.d(TAG, "featureSize error!");
+                                if (callback != null) {
+                                    callback.addResult(false, "featureSize error!");
+                                }
+                            }
+                        } else {
+                            MyLog.d(TAG, "init Feature model failed! " + response);
+                            if (callback != null) {
+                                callback.addResult(false, "加载模型失败");
+                            }
+                        }
+                        faceDetect.uninitModel();
+                        bean.rgbImage.destory();
+                        faceFeature.uninitModel();
+                    });
+        } else {
+            MyLog.d(TAG, "照片没有检测到人脸");
+            if (callback != null) {
+                callback.addResult(false, "照片没有检测到人脸");
+            }
+            faceDetect.uninitModel();
+            image.destory();
+        }
     }
 
     @Override
@@ -694,6 +820,142 @@ public class BdFaceSDK implements FaceSDK {
             }
         }
     }
+
+//    public String addFace(Context context, String photoPath) {
+//        if (!init) {
+//            MyLog.d(TAG, "SDK未初始化");
+//            return null;
+//        }
+//        if (TextUtils.isEmpty(photoPath)) {
+//            MyLog.d(TAG, "add face failed! the photo path is null");
+//            return null;
+//        }
+//        Bitmap bitmap = BitmapFactory.decodeFile(photoPath);
+//        if (bitmap == null) {
+//            MyLog.d(TAG, "add face failed! bitmap decodeFile error");
+//            return null;
+//        }
+//        BDFaceImageInstance image = new BDFaceImageInstance(bitmap);
+//        BDFaceInstance bdFaceInstance = new BDFaceInstance();
+//        bdFaceInstance.creatInstance();
+//        FaceDetect faceDetect = new FaceDetect(bdFaceInstance);
+//        BDFaceSDKConfig config = new BDFaceSDKConfig();
+//        config.maxDetectNum = 1;
+//        config.minFaceSize = SingleBaseConfig.getBaseConfig().getMinimumFace();
+//        config.notRGBFaceThreshold = SingleBaseConfig.getBaseConfig().getFaceThreshold();
+//        config.notNIRFaceThreshold = SingleBaseConfig.getBaseConfig().getFaceThreshold();
+//        config.isAttribute = SingleBaseConfig.getBaseConfig().isAttribute();
+//        config.isCheckBlur = config.isOcclusion
+//                = config.isIllumination = config.isHeadPose
+//                = SingleBaseConfig.getBaseConfig().isQualityControl();
+//        faceDetect.loadConfig(config);
+//        faceDetect.initModel(context,
+//                GlobalSet.DETECT_VIS_MODEL,
+//                GlobalSet.ALIGN_TRACK_MODEL,
+//                BDFaceSDKCommon.DetectType.DETECT_VIS,
+//                BDFaceSDKCommon.AlignType.BDFACE_ALIGN_TYPE_RGB_FAST,
+//                (code, response) -> {
+//                    if (code == 0) {
+//                        MyLog.d(TAG, "init track model success!");
+//                    } else {
+//                        MyLog.d(TAG, "init track model failed! " + response);
+//                    }
+//                });
+//        faceDetect.initModel(context,
+//                GlobalSet.DETECT_VIS_MODEL,
+//                GlobalSet.ALIGN_RGB_MODEL,
+//                BDFaceSDKCommon.DetectType.DETECT_VIS,
+//                BDFaceSDKCommon.AlignType.BDFACE_ALIGN_TYPE_RGB_ACCURATE,
+//                (code, response) -> {
+//                    if (code == 0) {
+//                        MyLog.d(TAG, "init rgb model success!");
+//                    } else {
+//                        MyLog.d(TAG, "init rgb model failed! " + response);
+//                    }
+//                });
+//        faceDetect.initQuality(context,
+//                GlobalSet.BLUR_MODEL,
+//                GlobalSet.OCCLUSION_MODEL, (code, response) -> {
+//                    if (code == 0) {
+//                        MyLog.d(TAG, "init Quality model success!");
+//                    } else {
+//                        MyLog.d(TAG, "init Quality model failed! " + response);
+//                    }
+//                });
+//        faceDetect.initAttrEmo(context, GlobalSet.ATTRIBUTE_MODEL, GlobalSet.EMOTION_MODEL, (code, response) -> {
+//            if (code == 0) {
+//                MyLog.d(TAG, "init AttrEmo model success!");
+//            } else {
+//                MyLog.d(TAG, "init AttrEmo model failed! " + response);
+//            }
+//        });
+//        faceDetect.initBestImage(context, GlobalSet.BEST_IMAGE, (code, response) -> {
+//            if (code == 0) {
+//                MyLog.d(TAG, "init Best face model success!");
+//            } else {
+//                MyLog.d(TAG, "init Best face model failed! " + response);
+//            }
+//        });
+//        FaceInfo[] faceInfos = faceDetect.track(BDFaceSDKCommon.DetectType.DETECT_VIS,
+//                BDFaceSDKCommon.AlignType.BDFACE_ALIGN_TYPE_RGB_FAST, image);
+//        Log.d(TAG, "add face: face num: " + (faceInfos == null ? 0 : faceInfos.length));
+//        if (faceInfos != null && faceInfos.length > 0) {
+//            DetectBean bean = new DetectBean();
+//            bean.rgbImage = image;
+//            bean.fastFaceInfos = faceInfos;
+//            if (bean.fastFaceInfos.length == 0) {
+//                MyLog.d(TAG, "照片没有人脸数据");
+//                faceDetect.uninitModel();
+//                return null;
+//            }
+//            BDFaceDetectListConf bdFaceDetectListConfig = new BDFaceDetectListConf();
+//            bdFaceDetectListConfig.usingQuality = bdFaceDetectListConfig.usingHeadPose
+//                    = SingleBaseConfig.getBaseConfig().isQualityControl();
+//            bdFaceDetectListConfig.usingBestImage = SingleBaseConfig.getBaseConfig().isBestImage();
+//            faceInfos = faceDetect.detect(BDFaceSDKCommon.DetectType.DETECT_VIS,
+//                    BDFaceSDKCommon.AlignType.BDFACE_ALIGN_TYPE_RGB_ACCURATE,
+//                    bean.rgbImage, bean.fastFaceInfos, bdFaceDetectListConfig);
+//            float rgbScore = faceLiveness.silentLive(BDFaceSDKCommon.LiveType.BDFACE_SILENT_LIVE_TYPE_RGB,
+//                    bean.rgbImage, faceInfos[0].landmarks);
+//            if (rgbScore < SingleBaseConfig.getBaseConfig().getRgbLiveScore()) {
+//                MyLog.d(TAG, "活体检测失败: rgb score=" + rgbScore);
+//                bean.rgbImage.destory();
+//                MyLog.d(TAG, "活体检测失败");
+//                faceDetect.uninitModel();
+//                return null;
+//            }
+//            byte[] feature = new byte[512];
+//            FaceFeature faceFeature = new FaceFeature();
+//            faceFeature.initModel(context,
+//                    GlobalSet.RECOGNIZE_IDPHOTO_MODEL,
+//                    GlobalSet.RECOGNIZE_VIS_MODEL,
+//                    GlobalSet.RECOGNIZE_NIR_MODEL,
+//                    GlobalSet.RECOGNIZE_RGBD_MODEL,
+//                    (code, response) -> {
+//                        if (code == 0) {
+//                            MyLog.d(TAG, "init Feature model success!");
+//                        } else {
+//                            MyLog.d(TAG, "init Feature model failed! " + response);
+//                        }
+//                    });
+//            float featureSize = faceFeature.feature(
+//                    BDFaceSDKCommon.FeatureType.BDFACE_FEATURE_TYPE_LIVE_PHOTO,
+//                    bean.rgbImage, faceInfos[0].landmarks, feature);
+//            bean.rgbImage.destory();
+//            if ((int) featureSize == FEATURE_SIZE / 4) {
+//                int id = db.insert(feature, getCurrentGroup());
+//                faceFeature.featurePush(db.queryAll());
+//                MyLog.d(TAG, "人脸添加成功！");
+//                faceDetect.uninitModel();
+//                return String.valueOf(id);
+//            }
+//            faceFeature.uninitModel();
+//        } else {
+//            MyLog.d(TAG, "照片没有检测到人脸");
+//        }
+//        faceDetect.uninitModel();
+//        return null;
+//    }
 
     @Override
     public void clearFace() {
@@ -830,8 +1092,69 @@ public class BdFaceSDK implements FaceSDK {
     }
 
     @Override
-    public String compare(String photoPath) {
+    public String compare(Context context, String photoPath) {
         BDFaceImageInstance image = new BDFaceImageInstance(BitmapFactory.decodeFile(photoPath));
+        BDFaceInstance bdFaceInstance = new BDFaceInstance();
+        bdFaceInstance.creatInstance();
+        FaceDetect faceDetect = new FaceDetect(bdFaceInstance);
+
+        BDFaceSDKConfig config = new BDFaceSDKConfig();
+        config.maxDetectNum = 1;
+        config.minFaceSize = SingleBaseConfig.getBaseConfig().getMinimumFace();
+        config.notRGBFaceThreshold = SingleBaseConfig.getBaseConfig().getFaceThreshold();
+        config.notNIRFaceThreshold = SingleBaseConfig.getBaseConfig().getFaceThreshold();
+        config.isAttribute = SingleBaseConfig.getBaseConfig().isAttribute();
+        config.isCheckBlur = config.isOcclusion
+                = config.isIllumination = config.isHeadPose
+                = SingleBaseConfig.getBaseConfig().isQualityControl();
+        faceDetect.loadConfig(config);
+        faceDetect.initModel(context,
+                GlobalSet.DETECT_VIS_MODEL,
+                GlobalSet.ALIGN_TRACK_MODEL,
+                BDFaceSDKCommon.DetectType.DETECT_VIS,
+                BDFaceSDKCommon.AlignType.BDFACE_ALIGN_TYPE_RGB_FAST,
+                (code, response) -> {
+                    if (code == 0) {
+                        MyLog.d(TAG, "init track model success!");
+                    } else {
+                        MyLog.d(TAG, "init track model failed! " + response);
+                    }
+                });
+        faceDetect.initModel(context,
+                GlobalSet.DETECT_VIS_MODEL,
+                GlobalSet.ALIGN_RGB_MODEL,
+                BDFaceSDKCommon.DetectType.DETECT_VIS,
+                BDFaceSDKCommon.AlignType.BDFACE_ALIGN_TYPE_RGB_ACCURATE,
+                (code, response) -> {
+                    if (code == 0) {
+                        MyLog.d(TAG, "init rgb model success!");
+                    } else {
+                        MyLog.d(TAG, "init rgb model failed! " + response);
+                    }
+                });
+        faceDetect.initQuality(context,
+                GlobalSet.BLUR_MODEL,
+                GlobalSet.OCCLUSION_MODEL, (code, response) -> {
+                    if (code == 0) {
+                        MyLog.d(TAG, "init Quality model success!");
+                    } else {
+                        MyLog.d(TAG, "init Quality model failed! " + response);
+                    }
+                });
+        faceDetect.initAttrEmo(context, GlobalSet.ATTRIBUTE_MODEL, GlobalSet.EMOTION_MODEL, (code, response) -> {
+            if (code == 0) {
+                MyLog.d(TAG, "init AttrEmo model success!");
+            } else {
+                MyLog.d(TAG, "init AttrEmo model failed! " + response);
+            }
+        });
+        faceDetect.initBestImage(context, GlobalSet.BEST_IMAGE, (code, response) -> {
+            if (code == 0) {
+                MyLog.d(TAG, "init Best face model success!");
+            } else {
+                MyLog.d(TAG, "init Best face model failed! " + response);
+            }
+        });
         FaceInfo[] faceInfo = faceDetect.track(BDFaceSDKCommon.DetectType.DETECT_VIS,
                 BDFaceSDKCommon.AlignType.BDFACE_ALIGN_TYPE_RGB_FAST, image);
         if (faceInfo != null && faceInfo.length > 0) {
@@ -846,11 +1169,25 @@ public class BdFaceSDK implements FaceSDK {
 
                 //提取特征及比对搜索
                 byte[] feature = new byte[512];
+                FaceFeature faceFeature = new FaceFeature();
+                faceFeature.initModel(context,
+                        GlobalSet.RECOGNIZE_IDPHOTO_MODEL,
+                        GlobalSet.RECOGNIZE_VIS_MODEL,
+                        GlobalSet.RECOGNIZE_NIR_MODEL,
+                        GlobalSet.RECOGNIZE_RGBD_MODEL,
+                        (code, response) -> {
+                            if (code == 0) {
+                                MyLog.d(TAG, "init Feature model success!");
+                            } else {
+                                MyLog.d(TAG, "init Feature model failed! " + response);
+                            }
+                        });
                 float featureSize = faceFeature.feature(
                         BDFaceSDKCommon.FeatureType.BDFACE_FEATURE_TYPE_LIVE_PHOTO,
                         image, faceInfos[0].landmarks, feature);
                 image.destory();
-
+                faceFeature.uninitModel();
+                faceDetect.uninitModel();
                 if ((int) featureSize == FEATURE_SIZE / 4) {
                     ArrayList<Feature> featureResult = faceFeature.featureSearch(feature,
                             BDFaceSDKCommon.FeatureType.BDFACE_FEATURE_TYPE_LIVE_PHOTO, 1, true);
@@ -884,7 +1221,7 @@ public class BdFaceSDK implements FaceSDK {
     @Override
     public void onPreviewCallback(byte[] rgbData, byte[] irData) {
         cameraFrame = new CameraFrame(rgbData, irData);
-        trackFace(null);
+        trackFace();
     }
 
     /**
