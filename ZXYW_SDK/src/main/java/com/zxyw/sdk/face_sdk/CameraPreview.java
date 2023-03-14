@@ -88,6 +88,7 @@ public class CameraPreview extends SurfaceView implements SurfaceHolder.Callback
         final List<Camera.Size> sizeList = params.getSupportedPreviewSizes();
         int ratio = 0;
         for (Camera.Size size : sizeList) {
+            MyLog.d(TAG, "Supported size: " + size.width + "×" + size.height);
             if (ratio == 0) {
                 ratio = size.width - size.height;
             }

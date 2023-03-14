@@ -14,7 +14,7 @@ public interface FaceSDK extends CameraDataListener {
      * @param context   上下文
      * @param groupList 需要创建的人脸分组，当传入参数为null时，需创建一个默认分组
      */
-    void init(Context context, List<String> groupList, String url);
+    void init(Context context, List<String> groupList, String url, InitFinishCallback callback);
 
     /**
      * 手动获取授权文件
@@ -30,7 +30,7 @@ public interface FaceSDK extends CameraDataListener {
      * @param photoPath 照片路径
      * @param callback  添加结果回调方法
      */
-    void addFace(Context context, String photoPath, AddFaceCallback callback);
+    void addFace(String photoPath, AddFaceCallback callback);
 
     /**
      * 删除人脸
@@ -108,6 +108,10 @@ public interface FaceSDK extends CameraDataListener {
          * @param message 添加失败时的提示消息
          */
         void addResult(boolean success, String message);
+    }
+
+    interface InitFinishCallback {
+        void initFinish(boolean success);
     }
 
     interface RecognizeCallback {

@@ -67,7 +67,7 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
     private boolean authStatus;
 
     @Override
-    public void init(final Context context, final List<String> groupList, final String url) {
+    public void init(final Context context, final List<String> groupList, final String url, InitFinishCallback callback) {//todo
         this.groupList = groupList;
         executorService = Executors.newCachedThreadPool();
         mDetectResultQueue = new LinkedBlockingDeque<>(1);
@@ -503,7 +503,7 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
     }
 
     @Override
-    public void addFace(Context context, String photoPath, AddFaceCallback addFaceCallback) {
+    public void addFace(String photoPath, AddFaceCallback addFaceCallback) {
         File imageFile = new File(photoPath);
         if (!imageFile.exists()) {
             if (addFaceCallback != null) {
