@@ -1,12 +1,16 @@
 package com.zxyw.sdk.auth;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.text.TextUtils;
+import android.widget.Toast;
 
 import com.baidu.idl.main.facesdk.FaceAuth;
 import com.zxyw.sdk.net.http.HttpUtil;
 import com.zxyw.sdk.speaker.Speaker;
+import com.zxyw.sdk.tools.MyLog;
 import com.zxyw.sdk.tools.Path;
 import com.zxyw.sdk.tools.Utils;
 
@@ -28,6 +32,7 @@ public class Auth {
     private final static String KEY_SN = "SN";
     private final static String KEY_LICENCE = "LICENCE";
     private final static String KEY_UUID = "uuid";
+    private final static String TAG = "device_auth";
 
     public static boolean isAuth() {
         return auth;
@@ -163,7 +168,7 @@ public class Auth {
 
         if (encodeLicence == null || encodeLicence.equals("")) {//如果sp缓存没有值，从外部空间文件读取
             encodeLicence = jsonObject.optString(KEY_LICENCE, "");
-        }else {//如果sp缓存有值，则更新外部空间文件内容
+        } else {//如果sp缓存有值，则更新外部空间文件内容
             try {
                 jsonObject.put(KEY_LICENCE, encodeLicence);
             } catch (JSONException e) {
@@ -201,6 +206,10 @@ public class Auth {
         getAuthCode(context, sn, url, key, a());
     }
 
+    private static void toast(Context context, String s) {
+        new Handler(Looper.getMainLooper()).post(() -> Toast.makeText(context, s, Toast.LENGTH_SHORT).show());
+    }
+
     private static void getAuthCode(Context context, String sn, String url, String key, String a) {
         if (!TextUtils.isEmpty(url)) {
             String uuid = context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE).getString(KEY_UUID, null);
@@ -216,13 +225,18 @@ public class Auth {
                 jsonObject.put("bd_device_id", new FaceAuth().getDeviceId(context));
                 jsonObject.put("sn", sn);
             } catch (JSONException e) {
-                e.printStackTrace();
+                final String msg = e.toString();
+                MyLog.e(TAG, msg);
+                toast(context, msg);
             }
 
-            HttpUtil.post(url, AESUtil.encode(jsonObject.toString()), new HttpUtil.HttpCallback() {
+            final String data = jsonObject.toString();
+            MyLog.d(TAG, "http request body: " + data);
+            HttpUtil.post(url, AESUtil.encode(data), new HttpUtil.HttpCallback() {
                 @Override
                 public void onFailed(String error) {
-
+                    MyLog.e(TAG, error);
+                    toast(context, error);
                 }
 
                 @Override
@@ -303,6 +317,8 @@ public class Auth {
                                 Speaker.getInstance().speak("系统激活失败");
                             }
                         }
+                    } else {
+                        Speaker.getInstance().speak(json.optString("msg"));
                     }
                 }
             });

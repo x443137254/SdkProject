@@ -9,9 +9,12 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.YuvImage;
 import android.hardware.Camera;
+import android.os.Handler;
+import android.os.Looper;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.Log;
+import android.widget.Toast;
 
 import com.baidu.idl.main.facesdk.FaceAuth;
 import com.baidu.idl.main.facesdk.FaceDarkEnhance;
@@ -33,6 +36,7 @@ import com.zxyw.sdk.face_sdk.bd_face.model.DetectBean;
 import com.zxyw.sdk.face_sdk.bd_face.model.GlobalSet;
 import com.zxyw.sdk.face_sdk.bd_face.model.SingleBaseConfig;
 import com.zxyw.sdk.net.http.HttpUtil;
+import com.zxyw.sdk.speaker.Speaker;
 import com.zxyw.sdk.tools.MyLog;
 import com.zxyw.sdk.tools.Utils;
 
@@ -89,10 +93,13 @@ public class BdFaceSDK implements FaceSDK {
     private final Map<String, AddFaceCallback> addFaceMap = new HashMap<>();
     private final Object addFaceLock = new Object();
     private final Object recognizeLock = new Object();
+    private boolean active;//是否是通过网络获取的激活码激活
+    private String authUrl;
 
     @Override
     public void init(final Context context, final List<String> groupList, final String url, InitFinishCallback callback) {
         this.groupList = groupList;
+        this.authUrl = url;
         initFinishCallback = callback;
 //        String s = checkLostFile();
 //        MyLog.d(TAG, "missing file: " + s);
@@ -109,6 +116,10 @@ public class BdFaceSDK implements FaceSDK {
                 getCertificate(context, url, null);
             }
         }, 2000);
+    }
+
+    private void toast(Context context, String s) {
+        new Handler(Looper.getMainLooper()).post(() -> Toast.makeText(context, s, Toast.LENGTH_SHORT).show());
     }
 
     @Override
@@ -129,7 +140,6 @@ public class BdFaceSDK implements FaceSDK {
                     jsonObject.put("bd_device_id", new FaceAuth().getDeviceId(context));
                     jsonObject.put("sn", Auth.readSN(context));
                 } catch (JSONException e) {
-                    e.printStackTrace();
                     if (callback != null) {
                         callback.authResult(false);
                     }
@@ -137,9 +147,12 @@ public class BdFaceSDK implements FaceSDK {
                         initFinishCallback.initFinish(false);
                         initFinishCallback = null;
                     }
+                    toast(context, e.toString());
                     return;
                 }
-                HttpUtil.post(url, AESUtil.encode(jsonObject.toString()), new HttpUtil.HttpCallback() {
+                final String data = jsonObject.toString();
+                MyLog.d(TAG, "http request body: " + data);
+                HttpUtil.post(url, AESUtil.encode(data), new HttpUtil.HttpCallback() {
                     @Override
                     public void onFailed(String error) {
                         if (callback != null) {
@@ -149,6 +162,7 @@ public class BdFaceSDK implements FaceSDK {
                             initFinishCallback.initFinish(false);
                             initFinishCallback = null;
                         }
+                        toast(context, error);
                     }
 
                     @Override
@@ -157,7 +171,7 @@ public class BdFaceSDK implements FaceSDK {
                         try {
                             json = new JSONObject(bodyString);
                         } catch (JSONException e) {
-                            e.printStackTrace();
+                            MyLog.e(TAG, "获取百度人脸识别激活码失败！返回数据格式错误");
                             if (callback != null) {
                                 callback.authResult(false);
                             }
@@ -165,6 +179,7 @@ public class BdFaceSDK implements FaceSDK {
                                 initFinishCallback.initFinish(false);
                                 initFinishCallback = null;
                             }
+                            toast(context, "获取百度人脸识别激活码失败！数据格式错误");
                             return;
                         }
                         if (json.optInt("status") == 200) {
@@ -173,17 +188,42 @@ public class BdFaceSDK implements FaceSDK {
                                 s = json.optString("result");
                             } catch (Exception e) {
                                 e.printStackTrace();
-                                if (callback != null) callback.authResult(false);
+                                if (callback != null) {
+                                    callback.authResult(false);
+                                }
+                                if (initFinishCallback != null) {
+                                    initFinishCallback.initFinish(false);
+                                    initFinishCallback = null;
+                                }
+                                toast(context, "获取百度人脸识别激活码失败！result is null");
                                 return;
                             }
                             if (!TextUtils.isEmpty(s)) {
+                                active = true;
                                 authOnline(s, context, callback);
                             }
+                        } else {
+                            final String s = "获取百度人脸识别激活码失败！" + json.optString("msg");
+                            MyLog.e(TAG, s);
+                            if (initFinishCallback != null) {
+                                initFinishCallback.initFinish(false);
+                                initFinishCallback = null;
+                            }
+                            toast(context, s);
                         }
                     }
                 });
+            } else {
+                final String s = "获取百度人脸识别激活码失败！未设置自动激活url";
+                MyLog.e(TAG, s);
+                if (initFinishCallback != null) {
+                    initFinishCallback.initFinish(false);
+                    initFinishCallback = null;
+                }
+                toast(context, s);
             }
         } else {
+            active = false;
             authOnline(cert, context, callback);
         }
     }
@@ -194,6 +234,12 @@ public class BdFaceSDK implements FaceSDK {
                 context.getSharedPreferences(spName, Context.MODE_PRIVATE).edit().putString(keyName, cert).apply();
                 if (callback != null) callback.authResult(true);
                 onAuthSuccess(context);
+                if (active) {
+                    Speaker.getInstance().speak("人脸识别激活成功");
+                }
+            } else if (!active) {//如果激活失败并且使用本地激活码的时候，清除激活码重新在线获取一次激活码
+                context.getSharedPreferences(spName, Context.MODE_PRIVATE).edit().remove(keyName).apply();
+                getCertificate(context, authUrl, null);
             } else {
                 if (callback != null) {
                     callback.authResult(false);
@@ -202,6 +248,10 @@ public class BdFaceSDK implements FaceSDK {
                     initFinishCallback.initFinish(false);
                     initFinishCallback = null;
                 }
+                if (active) {
+                    Speaker.getInstance().speak("人脸识别激活失败");
+                }
+                toast(context, "百度人脸识别授权失败");
             }
         });
     }
@@ -904,7 +954,6 @@ public class BdFaceSDK implements FaceSDK {
                     BDFaceSDKCommon.FeatureType.BDFACE_FEATURE_TYPE_LIVE_PHOTO,
                     bean.rgbImage, faceInfos[0].landmarks, feature);
             if ((int) featureSize == FEATURE_SIZE / 4) {
-
                 ArrayList<Feature> featureResult = faceFeature.featureSearch(feature,
                         BDFaceSDKCommon.FeatureType.BDFACE_FEATURE_TYPE_LIVE_PHOTO, 1, true);
                 if (featureResult != null && featureResult.size() > 0) {
@@ -921,28 +970,25 @@ public class BdFaceSDK implements FaceSDK {
                         }
                     }
                 }
-
                 int id = db.insert(feature, getCurrentGroup());
                 faceFeature.featurePush(db.queryAll());
                 MyLog.d(TAG, "人脸添加成功！");
                 if (callback != null) {
                     callback.addResult(true, String.valueOf(id));
                 }
-                image.destory();
             } else {
                 MyLog.d(TAG, "featureSize error!");
                 if (callback != null) {
                     callback.addResult(false, "featureSize error!");
                 }
-                image.destory();
             }
         } else {
             MyLog.d(TAG, "照片没有检测到人脸");
             if (callback != null) {
                 callback.addResult(false, "照片没有检测到人脸");
             }
-            image.destory();
         }
+        image.destory();
     }
 
     @Override

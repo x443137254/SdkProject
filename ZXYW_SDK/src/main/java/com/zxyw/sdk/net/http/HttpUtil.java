@@ -34,7 +34,7 @@ public class HttpUtil {
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
                 e.printStackTrace();
-                MyLog.e(TAG, "request failed! url=" + url);
+                MyLog.e(TAG, "request failed! url=" + url + " " + e.toString());
                 if (callback != null) {
                     callback.onFailed(e.toString());
                 }
