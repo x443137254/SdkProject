@@ -701,6 +701,9 @@ public class BdFaceSDK implements FaceSDK {
             return;
         }
         addFaceMap.put(photoPath, callback);
+        if (cameraFrameList.isEmpty()){
+            trackThread.interrupt();
+        }
 //        BDFaceInstance bdFaceInstance = new BDFaceInstance();
 //        bdFaceInstance.creatInstance();
 //        FaceDetect faceDetect = new FaceDetect(bdFaceInstance);
