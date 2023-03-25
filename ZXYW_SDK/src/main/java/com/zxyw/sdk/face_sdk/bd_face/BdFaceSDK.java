@@ -967,7 +967,7 @@ public class BdFaceSDK implements FaceSDK {
                             image.destory();
                             MyLog.d(TAG, "人脸添加失败，照片已存在");
                             if (callback != null) {
-                                callback.addResult(false, "人脸添加失败，照片已存在");
+                                callback.addResult(false, String.valueOf(query.getId()));
                             }
                             return;
                         }
