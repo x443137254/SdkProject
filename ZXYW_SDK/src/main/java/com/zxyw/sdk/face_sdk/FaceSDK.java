@@ -2,7 +2,6 @@ package com.zxyw.sdk.face_sdk;
 
 import android.content.Context;
 import android.graphics.RectF;
-import android.hardware.Camera;
 
 import java.util.List;
 
@@ -165,20 +164,12 @@ public interface FaceSDK extends CameraDataListener {
         private static int captureOrientation = 0;
         private static int cameraWidth = 480;
         private static int cameraHeight = 640;
-        @SuppressWarnings("deprecation")
-        private static int cameraNum = Camera.getNumberOfCameras();
-        //人脸框镜像
+        private static boolean singleCamera = false;
         private static boolean mirror = false;
-
-        public static void setCameraNum(int num) {
-            if (num > 0 && num <= cameraNum) {
-                cameraNum = num;
-            }
-        }
-
         private static String crashPath;
         private static String apkPath;
-        private static int previewCameraId = 0;
+        private static int rgbCameraId = 0;
+        private static int irCameraId = 1;
         //识别阈值(0-99)
         private static float searchThreshold = 65f;
         //活体阈值(0-99)
@@ -256,8 +247,20 @@ public interface FaceSDK extends CameraDataListener {
             Config.cameraHeight = cameraHeight;
         }
 
-        public static int getCameraNum() {
-            return cameraNum;
+        public static void setSingleCamera(boolean singleCamera) {
+            Config.singleCamera = singleCamera;
+        }
+
+        public static void setIrCameraId(int irCameraId) {
+            Config.irCameraId = irCameraId;
+        }
+
+        public static boolean isSingleCamera() {
+            return singleCamera;
+        }
+
+        public static int getIrCameraId() {
+            return irCameraId;
         }
 
         public static boolean isMirror() {
@@ -284,12 +287,12 @@ public interface FaceSDK extends CameraDataListener {
             Config.apkPath = apkPath;
         }
 
-        public static int getPreviewCameraId() {
-            return previewCameraId;
+        public static int getRgbCameraId() {
+            return rgbCameraId;
         }
 
-        public static void setPreviewCameraId(int previewCameraId) {
-            Config.previewCameraId = previewCameraId;
+        public static void setRgbCameraId(int rgbCameraId) {
+            Config.rgbCameraId = rgbCameraId;
         }
 
         public static float getSearchThreshold() {

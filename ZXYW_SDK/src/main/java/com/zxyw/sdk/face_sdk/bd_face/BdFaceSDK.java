@@ -284,7 +284,7 @@ public class BdFaceSDK implements FaceSDK {
         BDFaceInstance bdFaceInstance = new BDFaceInstance();
         bdFaceInstance.creatInstance();
         faceDetect = new FaceDetect(bdFaceInstance);
-        if (Config.getCameraNum() > 1) {
+        if (!Config.isSingleCamera()) {
             BDFaceInstance IrBdFaceInstance = new BDFaceInstance();
             IrBdFaceInstance.creatInstance();
             faceDetectNir = new FaceDetect(IrBdFaceInstance);
@@ -512,7 +512,7 @@ public class BdFaceSDK implements FaceSDK {
                                 rectfs[i].top = centerY - halfHeight;
                                 rectfs[i].bottom = centerY + halfHeight;
                                 //noinspection deprecation
-                                if (Config.isMirror() ^ Config.getPreviewCameraId() == Camera.getNumberOfCameras() - 1) {
+                                if (Config.isMirror() ^ Config.getRgbCameraId() == Camera.getNumberOfCameras() - 1) {
                                     rectfs[i].left = detectFaceCallback.getMeasuredWidth() - rectfs[i].left;
                                     rectfs[i].right = detectFaceCallback.getMeasuredWidth() - rectfs[i].right;
                                 }
@@ -585,7 +585,7 @@ public class BdFaceSDK implements FaceSDK {
                     }
                 });
 
-        if (Config.getCameraNum() > 1) {
+        if (!Config.isSingleCamera()) {
             faceDetectNir.initModel(context,
                     GlobalSet.DETECT_NIR_MODE,
                     GlobalSet.ALIGN_NIR_MODEL,

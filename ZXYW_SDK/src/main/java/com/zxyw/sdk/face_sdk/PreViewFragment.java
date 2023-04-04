@@ -1,7 +1,6 @@
 package com.zxyw.sdk.face_sdk;
 
 import android.graphics.RectF;
-import android.hardware.Camera;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -15,6 +14,7 @@ import androidx.fragment.app.FragmentActivity;
 import com.zxyw.sdk.R;
 import com.zxyw.sdk.tools.MyLog;
 
+@SuppressWarnings("deprecation")
 public class PreViewFragment extends Fragment implements FaceSDK.DetectFaceCallback, CameraPreview.SurfaceCreatedCallback {
 
     private final String TAG = "PreViewFragment";
@@ -58,8 +58,7 @@ public class PreViewFragment extends Fragment implements FaceSDK.DetectFaceCallb
     }
 
     private void initCamera() {
-        final int rbgCameraId = FaceSDK.Config.getPreviewCameraId();
-        mCameraRGBPreview.openCamera(rbgCameraId);//Camera.CameraInfo.CAMERA_FACING_BACK
+        mCameraRGBPreview.openCamera(FaceSDK.Config.getRgbCameraId());//Camera.CameraInfo.CAMERA_FACING_BACK
         mCameraRGBPreview.setListener(data -> {
             if (rgbListener != null) rgbListener.change();
             if ((System.currentTimeMillis() - resumeTime) < 1000) {
@@ -82,10 +81,8 @@ public class PreViewFragment extends Fragment implements FaceSDK.DetectFaceCallb
 //            }
 //        },1000);
 
-        //noinspection deprecation
-        final int cameraNum = Camera.getNumberOfCameras();
-        if (FaceSDK.Config.getCameraNum() > 1) {
-            mCameraIRPreview.openCamera(rbgCameraId == cameraNum - 2 ? cameraNum - 1 : cameraNum - 2);//Camera.CameraInfo.CAMERA_FACING_FRONT
+        if (!FaceSDK.Config.isSingleCamera()) {
+            mCameraIRPreview.openCamera(FaceSDK.Config.getIrCameraId());//Camera.CameraInfo.CAMERA_FACING_FRONT
             mCameraIRPreview.setListener(data -> {
                 if (irListener != null) irListener.change();
                 irDataBuff = data;

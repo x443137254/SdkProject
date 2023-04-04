@@ -222,7 +222,7 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
              */
             config.poseBlurModel = FacePassModel.initModel(context.getAssets(), "attr.pose_blur.align.av200.190630.bin");
 
-            if (Config.getCameraNum() == 1) {//单目使用CPU rgb活体模型
+            if (Config.isSingleCamera()) {//单目使用CPU rgb活体模型
                 config.livenessModel = FacePassModel.initModel(context.getAssets(), "liveness.CPU.rgb.int8.E.bin");
             } else {//双目使用CPU rgbir活体模型
                 config.rgbIrLivenessModel = FacePassModel.initModel(context.getAssets(), "liveness.CPU.rgbir.int8.E.bin");
@@ -276,7 +276,7 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
                 addFaceConfig.blurThreshold = Config.getAddFaceBlurThreshold();
                 addFaceConfig.faceMinThreshold = Config.getAddFaceMinThreshold();
                 mFacePassHandler.setAddFaceConfig(addFaceConfig);
-                if (Config.getCameraNum() > 1) {
+                if (!Config.isSingleCamera()) {
                     mFacePassHandler.setIRConfig(
                             0.99940616D,
                             0.03817749D,
@@ -311,7 +311,7 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
                 }
                 FacePassDetectionResult detectionResult;
                 try {
-                    if (Config.getCameraNum() == 1) {
+                    if (Config.isSingleCamera()) {
                         detectionResult = mFacePassHandler.feedFrame(dataPacket.getImageRGB());
                     } else if (dataPacket.getImageIR() != null) {
                         detectionResult = mFacePassHandler.feedFrameRGBIR(dataPacket.getImageRGB(), dataPacket.getImageIR());
@@ -747,7 +747,7 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
     @Override
     public String compare(Context context, String photoPath) {
         if (mFacePassHandler == null) {
-            MyLog.d(TAG,"compare failed! SDK has not init");
+            MyLog.d(TAG, "compare failed! SDK has not init");
             return null;
         }
         final Bitmap bitmap = BitmapFactory.decodeFile(photoPath);
@@ -756,11 +756,11 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
             detectFaces = mFacePassHandler.detectFaces(bitmap, 0);
         } catch (FacePassException e) {
             e.printStackTrace();
-            MyLog.d(TAG,"compare failed! detectFaces error: " + e.toString());
+            MyLog.d(TAG, "compare failed! detectFaces error: " + e.toString());
             return null;
         }
         if (detectFaces == null || detectFaces.faceList == null || detectFaces.faceList.length == 0) {
-            MyLog.d(TAG,"compare failed! no faces found");
+            MyLog.d(TAG, "compare failed! no faces found");
             return null;
         }
         final FacePassSearchResult[] searchResults;
@@ -773,17 +773,17 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
                     mFacePassHandler.getLocalGroupFaceNum(getCurrentGroup()));
         } catch (FacePassException e) {
             e.printStackTrace();
-            MyLog.d(TAG,"compare failed! compare1xN error: " + e.toString());
+            MyLog.d(TAG, "compare failed! compare1xN error: " + e.toString());
             return null;
         }
-        if (searchResults == null || searchResults.length == 0){
-            MyLog.d(TAG,"compare failed! no searchResults");
+        if (searchResults == null || searchResults.length == 0) {
+            MyLog.d(TAG, "compare failed! no searchResults");
             return null;
         }
-        if (searchResults[0].searchScore > FaceSDK.Config.getSearchThreshold()){
+        if (searchResults[0].searchScore > FaceSDK.Config.getSearchThreshold()) {
             return new String(searchResults[0].faceToken);
         }
-        MyLog.d(TAG,"compare failed! max searchScore=" + searchResults[0].searchScore);
+        MyLog.d(TAG, "compare failed! max searchScore=" + searchResults[0].searchScore);
         return null;
     }
 
