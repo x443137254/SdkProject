@@ -11,6 +11,7 @@ import android.graphics.YuvImage;
 import android.hardware.Camera;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.util.Log;
@@ -95,6 +96,7 @@ public class BdFaceSDK implements FaceSDK {
     private final Object recognizeLock = new Object();
     private boolean active;//是否是通过网络获取的激活码激活
     private String authUrl;
+    private byte[] cacheFrame;
 
     @Override
     public void init(final Context context, final List<String> groupList, final String url, InitFinishCallback callback) {
@@ -701,7 +703,7 @@ public class BdFaceSDK implements FaceSDK {
             return;
         }
         addFaceMap.put(photoPath, callback);
-        if (cameraFrameList.isEmpty()){
+        if (cameraFrameList.isEmpty()) {
             trackThread.interrupt();
         }
 //        BDFaceInstance bdFaceInstance = new BDFaceInstance();
@@ -1196,12 +1198,19 @@ public class BdFaceSDK implements FaceSDK {
                 return false;
             }
         }
-        final CameraFrame cameraFrame = cameraFrameList.peek();
-        if (cameraFrame == null || cameraFrame.rgbData == null) {
+
+        int waitCount = 0;
+        while (cacheFrame == null){
+            waitCount++;
+            SystemClock.sleep(10);
+            if (waitCount > 10) break;
+        }
+
+        if (cacheFrame == null) {
             MyLog.d(TAG, "capture save failed! frame buff is empty");
             return false;
         }
-        YuvImage yuvImage = new YuvImage(cameraFrame.rgbData.clone(), ImageFormat.NV21,
+        YuvImage yuvImage = new YuvImage(cacheFrame.clone(), ImageFormat.NV21,
                 Config.getCameraWidth(), Config.getCameraHeight(), null);
         try {
             FileOutputStream fosImage = new FileOutputStream(file);
@@ -1411,6 +1420,7 @@ public class BdFaceSDK implements FaceSDK {
     public void onPreviewCallback(byte[] rgbData, byte[] irData) {
 //        cameraFrame = new CameraFrame(rgbData, irData);
 //        trackFace();
+        cacheFrame = rgbData;
         if (cameraFrameList.size() > 1) {
             try {
                 cameraFrameList.take();

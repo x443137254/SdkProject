@@ -164,8 +164,8 @@ public interface FaceSDK extends CameraDataListener {
         private static int captureOrientation = 0;
         private static int cameraWidth = 480;
         private static int cameraHeight = 640;
-        private static boolean singleCamera = false;
-        private static boolean mirror = false;
+        private static boolean singleCamera;
+        private static boolean mirror;
         private static String crashPath;
         private static String apkPath;
         private static int rgbCameraId = 0;

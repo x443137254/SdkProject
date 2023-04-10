@@ -14,7 +14,6 @@ import androidx.fragment.app.FragmentActivity;
 import com.zxyw.sdk.R;
 import com.zxyw.sdk.tools.MyLog;
 
-@SuppressWarnings("deprecation")
 public class PreViewFragment extends Fragment implements FaceSDK.DetectFaceCallback, CameraPreview.SurfaceCreatedCallback {
 
     private final String TAG = "PreViewFragment";
