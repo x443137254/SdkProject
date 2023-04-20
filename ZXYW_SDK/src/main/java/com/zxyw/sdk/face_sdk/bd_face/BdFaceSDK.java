@@ -1417,6 +1417,22 @@ public class BdFaceSDK implements FaceSDK {
     }
 
     @Override
+    public List<String> getAllFaceToken() {
+        if (db == null){
+            return new ArrayList<>();
+        }
+        final List<Feature> list = db.queryAll(getCurrentGroup());
+        if (list == null || list.size() == 0) {
+            return new ArrayList<>();
+        }
+        List<String> arrayList = new ArrayList<>();
+        for (Feature feature : list){
+            arrayList.add(String.valueOf(feature.getId()));
+        }
+        return arrayList;
+    }
+
+    @Override
     public void onPreviewCallback(byte[] rgbData, byte[] irData) {
 //        cameraFrame = new CameraFrame(rgbData, irData);
 //        trackFace();

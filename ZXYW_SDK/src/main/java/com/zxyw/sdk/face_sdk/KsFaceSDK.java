@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Timer;
@@ -67,7 +68,7 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
     private boolean authStatus;
 
     @Override
-    public void init(final Context context, final List<String> groupList, final String url, InitFinishCallback callback) {//todo
+    public void init(final Context context, final List<String> groupList, final String url, InitFinishCallback callback) {
         this.groupList = groupList;
         executorService = Executors.newCachedThreadPool();
         mDetectResultQueue = new LinkedBlockingDeque<>(1);
@@ -806,6 +807,27 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
     @Override
     public void setDetectFaceCallback(DetectFaceCallback detectFaceCallback) {
         this.detectFaceCallback = detectFaceCallback;
+    }
+
+    @Override
+    public List<String> getAllFaceToken() {
+        if (mFacePassHandler == null){
+            return new ArrayList<>();
+        }
+        try {
+            final byte[][] info = mFacePassHandler.getLocalGroupInfo(getCurrentGroup());
+            if (info == null || info.length == 0){
+                return new ArrayList<>();
+            }
+            List<String> list = new ArrayList<>();
+            for (byte[] bytes : info){
+                list.add(new String(bytes));
+            }
+            return list;
+        } catch (FacePassException e) {
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
     }
 
     @Override

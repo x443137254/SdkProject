@@ -97,6 +97,19 @@ public class FeatureBd extends SQLiteOpenHelper {
         return list;
     }
 
+    public List<Feature> queryAll(String group) {
+        List<Feature> list = new ArrayList<>();
+        Cursor cursor = getReadableDatabase().rawQuery("SELECT * FROM " + tableName + " WHERE groupId='" + group + "'", null);
+        Feature feature;
+        while (cursor.moveToNext()) {
+            feature = new Feature();
+            fillValues(cursor, feature);
+            list.add(feature);
+        }
+        cursor.close();
+        return list;
+    }
+
     public Feature query(int id, String group) {
         String sql = "SELECT * FROM " + tableName + " WHERE groupId=\"" + group + "\" and id=" + id;
         Cursor cursor = getReadableDatabase().rawQuery(sql, null);

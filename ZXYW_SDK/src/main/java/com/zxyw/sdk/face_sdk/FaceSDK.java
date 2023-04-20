@@ -96,6 +96,8 @@ public interface FaceSDK extends CameraDataListener {
 
     void setDetectFaceCallback(DetectFaceCallback detectFaceCallback);
 
+    List<String> getAllFaceToken();
+
     @Override
     void onPreviewCallback(byte[] rgbData, byte[] irData);
 
