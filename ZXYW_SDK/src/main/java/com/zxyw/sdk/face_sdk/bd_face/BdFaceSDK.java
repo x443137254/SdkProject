@@ -1413,6 +1413,7 @@ public class BdFaceSDK implements FaceSDK {
 
     @Override
     public void setDetectFaceCallback(DetectFaceCallback detectFaceCallback) {
+        scaleW = 0;
         this.detectFaceCallback = detectFaceCallback;
     }
 
