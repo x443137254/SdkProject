@@ -42,7 +42,7 @@ public class Speaker {
     private final Queue<String> queue;
     volatile private boolean talking;
     final private Handler handler;
-//    private String speakContent;
+    //    private String speakContent;
     final private Runnable speakRunnable;
     private SpeakStatusChangeListener statusChangeListener;
     private WakeuperListener mWakeuperListener;
@@ -50,6 +50,8 @@ public class Speaker {
     private WakeupListener wakeupListener;
     private CommendListener commendListener;
     private int wakeupScore = 1400;
+    private Thread recognizeThread;
+    private Thread wakeupThread;
 
     private Speaker() {
         queue = new LinkedList<>();
@@ -82,6 +84,14 @@ public class Speaker {
         return instance;
     }
 
+    /**
+     * 讯飞语音模块初始化
+     *
+     * @param context 上下文环境
+     * @param b1      是否启用语音播报
+     * @param b2      是否启用语音唤醒
+     * @param b3      是否启用语音识别
+     */
     public void init(final Context context, boolean b1, boolean b2, boolean b3) {
         String param = "appid=" + appid + "," + SpeechConstant.ENGINE_MODE + "=" + SpeechConstant.MODE_MSC;
         SpeechUtility.createUtility(context.getApplicationContext(), param);
@@ -149,6 +159,7 @@ public class Speaker {
                 MyLog.d(TAG, "语法构建成功：" + grammarId);
             } else {
                 MyLog.e(TAG, "语法构建失败：" + speechError.toString());
+                mAsr = null;
             }
         });
         recognizerListener = new RecognizerListener() {
@@ -181,7 +192,7 @@ public class Speaker {
                 if (commendListener != null) {
                     commendListener.onRecognize(null, 0, error.getErrorCode());
                 }
-                MyLog.e(TAG, "Recognize error: " + error.getErrorCode());
+//                MyLog.e(TAG, "Recognize error: " + error.getErrorCode());
             }
 
             @Override
@@ -295,26 +306,34 @@ public class Speaker {
 
     public void startRecognize() {
         if (mAsr != null) {
-            mAsr.startListening(recognizerListener);
+            recognizeThread = new Thread(() -> mAsr.startListening(recognizerListener));
+            recognizeThread.start();
         }
     }
 
     public void stopRecognize() {
         if (mAsr != null) {
             mAsr.stopListening();
+            recognizeThread.interrupt();
         }
     }
 
     public void startWakeupListen(Context context) {
         if (mIvw != null) {
-            setIvwParam(context);
-            mIvw.startListening(mWakeuperListener);
+            wakeupThread = new Thread(()->{
+                setIvwParam(context);
+                mIvw.startListening(mWakeuperListener);
+            });
+            wakeupThread.start();
         }
     }
 
     public void stopWakeupListen() {
         if (mIvw != null) {
             mIvw.stopListening();
+        }
+        if (wakeupThread != null){
+            wakeupThread.interrupt();
         }
     }
 
