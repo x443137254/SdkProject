@@ -342,7 +342,7 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
                             mDetectResultQueue.offer(detectionResult.message);
                         } else {
                             if (recognizeCallback != null) {
-                                recognizeCallback.recognizeResult(false, "请再靠近一些");
+                                recognizeCallback.recognizeFailed("请再靠近一些");
                             }
                         }
                     }
@@ -418,7 +418,7 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
                     //检查底库，如果底库没有添加人脸，SDK直接不进行识别返回空数据，所以数据不提交SDK识别直接返回
                     if (mFacePassHandler.getLocalGroupFaceNum(getCurrentGroup()) <= 0) {
                         MyLog.d(TAG, "recognize : group is empty");
-                        recognizeCallback.recognizeResult(false, "人脸未注册");
+                        recognizeCallback.recognizeFailed("人脸未注册");
                         continue;
                     }
                     //人脸数据提交SDK进行识别
@@ -430,31 +430,32 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
                 if (recognizeResult == null || recognizeResult.length == 0) {
                     MyLog.d(TAG, "recognize : Result is null");
                     if (recognizeCallback != null) {
-                        recognizeCallback.recognizeResult(false, "人脸识别失败");
+                        recognizeCallback.recognizeFailed("人脸识别失败");
                     }
                     continue;
                 }
+                final List<String> faceTokenList = new ArrayList<>();
                 for (FacePassRecognitionResult result : recognizeResult) {
-                    if (recognizeCallback != null) {
-                        if (result.recognitionState == FacePassRecognitionState.RECOGNITION_PASS) {
-                            recognizeCallback.recognizeResult(true, new String(result.faceToken));
+                    if (result.recognitionState == FacePassRecognitionState.RECOGNITION_PASS) {
+                        faceTokenList.add(new String(result.faceToken));
+                    } else {
+                        if (result.detail.searchScore < result.detail.searchThreshold) {
+                            MyLog.d(TAG, "recognize : searchScore=" + result.detail.searchScore + " searchThreshold=" + result.detail.searchThreshold);
+                        } else if (result.detail.livenessScore < result.detail.livenessThreshold) {
+                            MyLog.d(TAG, "recognize : livenessScore=" + result.detail.livenessScore + " livenessThreshold=" + result.detail.livenessThreshold);
                         } else {
-                            String tip;
-                            if (result.detail.searchScore < result.detail.searchThreshold) {
-                                MyLog.d(TAG, "recognize : searchScore=" + result.detail.searchScore + " searchThreshold=" + result.detail.searchThreshold);
-                                tip = "人脸未注册";
-                            } else if (result.detail.livenessScore < result.detail.livenessThreshold) {
-                                MyLog.d(TAG, "recognize : livenessScore=" + result.detail.livenessScore + " livenessThreshold=" + result.detail.livenessThreshold);
-                                tip = "检测失败";
-                            } else {
-                                MyLog.d(TAG, "recognize :");
-                                tip = "";
-                            }
-                            recognizeCallback.recognizeResult(false, tip);
+                            MyLog.d(TAG, "recognize :");
                         }
                     }
 //                    MyLog.d(TAG, "recognize : trackId reset");
 //                    mFacePassHandler.setMessage(result.trackId, FacePassTrackIdState.TRACK_ID_RETRY);
+                }
+                if (recognizeCallback != null) {
+                    if (faceTokenList.size() > 0){
+                        recognizeCallback.recognizeSuccess(faceTokenList);
+                    }else {
+                        recognizeCallback.recognizeFailed("人脸未注册");
+                    }
                 }
             }
         });

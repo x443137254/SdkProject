@@ -116,13 +116,18 @@ public interface FaceSDK extends CameraDataListener {
     }
 
     interface RecognizeCallback {
+
         /**
-         * 人脸识别结果回调
-         *
-         * @param success true 识别成功，false 识别失败
-         * @param message 识别成功时返回对应faceToken，否则返回提示消息
+         * 人脸识别成功
+         * @param faceTokenList faceToken集合
          */
-        void recognizeResult(boolean success, String message);
+        void recognizeSuccess(List<String> faceTokenList);
+
+        /**
+         * 识别失败
+         * @param message 提示信息
+         */
+        void recognizeFailed(String message);
     }
 
     interface AuthCallback {
@@ -183,7 +188,7 @@ public interface FaceSDK extends CameraDataListener {
         //遮挡使能开关
         private static boolean occlusionFilterEnabled = false;
         //最小人脸尺寸(0-512像素)
-        private static int faceMinThreshold = 140;
+        private static int faceMinThreshold = 120;
         //添加人脸时的最小人脸尺寸(0-512像素)
         private static int addFaceMinThreshold = 100;
         //人脸旋转角度阈值（0-90）
@@ -208,6 +213,8 @@ public interface FaceSDK extends CameraDataListener {
         private static boolean maxFaceEnabled = true;
         //抓拍照片保存压缩率（0-100），值越小越模糊
         private static int compressQuality = 75;
+        //同时检测的人脸数量
+        private static int faceDetectNum = 1;
 
         public static int getPreviewOrientation() {
             return previewOrientation;
@@ -439,6 +446,14 @@ public interface FaceSDK extends CameraDataListener {
 
         public static void setCompressQuality(int compressQuality) {
             Config.compressQuality = compressQuality;
+        }
+
+        public static void setFaceDetectNum(int faceDetectNum) {
+            Config.faceDetectNum = faceDetectNum;
+        }
+
+        public static int getFaceDetectNum() {
+            return faceDetectNum;
         }
     }
 }
