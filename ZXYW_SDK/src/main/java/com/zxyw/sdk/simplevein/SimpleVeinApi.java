@@ -155,9 +155,6 @@ public class SimpleVeinApi {
                                     offset = 0;
                                     readCmd = (byte) VeinApi.XG_CMD_GET_CHARA;
                                     readTemplate();
-                                    if (reading) {
-                                        getTemplate();
-                                    }
                                     break;
                                 case VeinApi.XG_ERR_FAIL://读取失败
                                     if (reading) {
@@ -203,6 +200,9 @@ public class SimpleVeinApi {
                             } else {
                                 if (readCallback != null) {
                                     readCallback.readTemplate(VeinApi.FVEncodeBase64(template, template.length));
+                                }
+                                if (reading) {
+                                    getTemplate();
                                 }
 //                                final String tempString = VeinApi.FVEncodeBase64(template, template.length);
 //                                final String result = VeinApi.FVVerifyUser(enrollString, tempString, 80);
