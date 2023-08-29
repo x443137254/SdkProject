@@ -52,6 +52,7 @@ public class Speaker {
     private int wakeupScore = 1400;
     private Thread recognizeThread;
     private Thread wakeupThread;
+    private String lastMessage;
 
     private Speaker() {
         queue = new LinkedList<>();
@@ -62,7 +63,8 @@ public class Speaker {
         speakRunnable = () -> {
             if (mTts != null && !queue.isEmpty()) {
                 talking = true;
-                mTts.startSpeaking(queue.poll(), synthesizerListener);
+                lastMessage = queue.poll();
+                mTts.startSpeaking(lastMessage, synthesizerListener);
             }
         };
     }
@@ -320,7 +322,7 @@ public class Speaker {
 
     public void startWakeupListen(Context context) {
         if (mIvw != null) {
-            wakeupThread = new Thread(()->{
+            wakeupThread = new Thread(() -> {
                 setIvwParam(context);
                 mIvw.startListening(mWakeuperListener);
             });
@@ -332,7 +334,7 @@ public class Speaker {
         if (mIvw != null) {
             mIvw.stopListening();
         }
-        if (wakeupThread != null){
+        if (wakeupThread != null) {
             wakeupThread.interrupt();
         }
     }
@@ -348,9 +350,10 @@ public class Speaker {
     }
 
     public void speak(String content) {
-        if (mTts == null) return;
+        if (mTts == null || TextUtils.isEmpty(content)) return;
         if (talking) {
-            queue.clear();
+//            queue.clear();
+            if (content.equals(lastMessage)) return;
             queue.add(content);
         } else {
             queue.add(content);
