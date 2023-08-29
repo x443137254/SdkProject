@@ -10,8 +10,8 @@ android {
         minSdkVersion 21
         //noinspection OldTargetApi
         targetSdkVersion 30
-        versionCode 51
-        versionName "3.2"
+        versionCode 52
+        versionName "3.3"
         multiDexEnabled true
         ndk {
             abiFilters 'armeabi-v7a' //'x86', 'armeabi-v7a', 'x86_64', 'arm64-v8a', mips, mips64...加入需要生成的文件夹
@@ -38,7 +38,7 @@ android {
 
     repositories {
         flatDir {
-            dirs 'libs', '../ks_face/libs'
+            dirs 'libs'
         }
     }
 
@@ -63,10 +63,7 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.2'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.3.0'
-
-    api(name: 'FacePassAndroidSDK-McvSafe-release', ext: 'aar')
-    api(name: 'mcvSafe.v1.2.2', ext: 'aar')
-
     implementation 'com.squareup.okhttp3:okhttp:3.10.0'
     implementation 'com.squareup.okio:okio:1.12.0'
+    api(name: 'FacePassAndroidProSDK-year-release', ext: 'aar')
 }

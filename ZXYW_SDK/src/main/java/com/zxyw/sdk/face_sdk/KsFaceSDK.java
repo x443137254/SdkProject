@@ -2,8 +2,6 @@ package com.zxyw.sdk.face_sdk;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
@@ -15,23 +13,16 @@ import android.os.Environment;
 import android.os.SystemClock;
 import android.text.TextUtils;
 
-import com.srp.AuthApi.AuthApi;
+import com.zxyw.sdk.R;
 import com.zxyw.sdk.tools.MyLog;
+import com.zxyw.sdk.tools.Path;
+import com.zxyw.sdk.tools.Utils;
 
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.FileReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -40,15 +31,19 @@ import mcv.facepass.FacePassException;
 import mcv.facepass.FacePassHandler;
 import mcv.facepass.types.FacePassAddFaceResult;
 import mcv.facepass.types.FacePassConfig;
-import mcv.facepass.types.FacePassDetectFacesResult;
-import mcv.facepass.types.FacePassDetectionResult;
+import mcv.facepass.types.FacePassExtractFeatureResult;
 import mcv.facepass.types.FacePassImage;
 import mcv.facepass.types.FacePassImageType;
 import mcv.facepass.types.FacePassModel;
 import mcv.facepass.types.FacePassPose;
+import mcv.facepass.types.FacePassRCAttribute;
+import mcv.facepass.types.FacePassRecogMode;
 import mcv.facepass.types.FacePassRecognitionResult;
 import mcv.facepass.types.FacePassRecognitionState;
 import mcv.facepass.types.FacePassSearchResult;
+import mcv.facepass.types.FacePassTrackIdState;
+import mcv.facepass.types.FacePassTrackOptions;
+import mcv.facepass.types.FacePassTrackResult;
 
 public class KsFaceSDK implements FaceSDK, CameraDataListener {
     private final String TAG = "KsFaceSDK";
@@ -56,7 +51,7 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
     private String currentGroup;
     private List<String> groupList;
     private FacePassHandler mFacePassHandler;
-    private LinkedBlockingDeque<byte[]> mDetectResultQueue;
+    private LinkedBlockingDeque<RecognizeData> mDetectResultQueue;
     private LinkedBlockingDeque<CameraDataPacket> mFeedFrameQueue;
     private DetectFaceCallback detectFaceCallback;
     private RecognizeCallback recognizeCallback;
@@ -66,235 +61,234 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
     private final String SP_NAME = "auth_sp";
     private final String KEY_AUTH = "auth";
     private boolean authStatus;
+    private InitFinishCallback initCallback;
 
     @Override
     public void init(final Context context, final List<String> groupList, final String url, InitFinishCallback callback) {
         this.groupList = groupList;
+        this.initCallback = callback;
         executorService = Executors.newCachedThreadPool();
         mDetectResultQueue = new LinkedBlockingDeque<>(1);
         mFeedFrameQueue = new LinkedBlockingDeque<>(1);
         SharedPreferences sp = context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE);
-        long now = System.currentTimeMillis();
-        String KEY_TIME = "last_init";
-        String KEY_FREQUENCY = "times";
-        int frequency = 0;
-        final long lastInit = sp.getLong(KEY_TIME, 0);
-        MyLog.d(TAG, "last init time: " +
-                new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.sss", Locale.getDefault())
-                        .format(lastInit));
-        if ((now - lastInit) < 2500) {
-            frequency = sp.getInt(KEY_FREQUENCY, 0) + 1;
-            MyLog.d(TAG, "init frequently times: " + frequency);
-        }
-        sp.edit().putLong(KEY_TIME, now).putInt(KEY_FREQUENCY, frequency).apply();
-        if (frequency > 1) {
-            final int checkCrashFile = checkCrashFile();
-            MyLog.d(TAG, "checkCrashFile: " + checkCrashFile);
-            if (checkCrashFile >= 0) {
-                sp.edit().putBoolean(KEY_AUTH, false).apply();
-                installApk(context);
-                return;
-            }
-        }
+//        long now = System.currentTimeMillis();
+//        String KEY_TIME = "last_init";
+//        String KEY_FREQUENCY = "times";
+//        int frequency = 0;
+//        final long lastInit = sp.getLong(KEY_TIME, 0);
+//        MyLog.d(TAG, "last init time: " +
+//                new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.sss", Locale.getDefault())
+//                        .format(lastInit));
+//        if ((now - lastInit) < 2500) {
+//            frequency = sp.getInt(KEY_FREQUENCY, 0) + 1;
+//            MyLog.d(TAG, "init frequently times: " + frequency);
+//        }
+//        sp.edit().putLong(KEY_TIME, now).putInt(KEY_FREQUENCY, frequency).apply();
+//        if (frequency > 1) {
+//            final int checkCrashFile = checkCrashFile();
+//            MyLog.d(TAG, "checkCrashFile: " + checkCrashFile);
+//            if (checkCrashFile >= 0) {
+//                sp.edit().putBoolean(KEY_AUTH, false).apply();
+//                installApk(context);
+//                return;
+//            }
+//        }
         authStatus = sp.getBoolean(KEY_AUTH, false);
-        if (authStatus) {
-            initFacePassSDK(context);
-        } else {
-            new Timer().schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    auth(context, "\"{\"\"serial\"\":\"\"r0034d9da44a3ad61a7a53fdb531e53c39534\"\",\"\"key\"\":\"\"81a9c062b2322c026be4682f5a7e28d2de3f06b2b36c2936e319e44452dc754a210c9314a5f3842fbee791ef43027ffcf034ca35b39f3307d7d2025d635c8f365e8220bc0734ab9ac50d3dad529f221f789de9e5e5a2ba9ae656845643cfe1eb3b022a17dee403f33a4f2beca87b992ea84a449e217b38ec564df52074c0806b49e21ec6d6bb1d6e30cbdfbd4ce7a9a029e1b90b0fac48673f56a3189da3c3024094393b83ca552c29195193f77601829c16e9514e2244ff0905215310496a92\"\"}\"\n", null);
-                }
-            }, 2000);
-        }
+        executorService.execute(() -> {
+            MyLog.d(TAG, "FacePassHandler initSDK start!");
+            FacePassHandler.initSDK(context.getApplicationContext());
+            MyLog.d(TAG, "FacePassHandler initSDK finish, authStatus " + authStatus);
+            if (authStatus) {
+                initFacePassHandler(context);
+            } else {
+                getCertificate(context, null, success -> {
+                    if (!success && initCallback != null) {
+                        initCallback.initFinish(false);
+                        initCallback = null;
+                    }
+                });
+            }
+        });
     }
 
     @Override
     public void getCertificate(Context context, String url, AuthCallback callback) {
-        throw new RuntimeException("方法未实现");
-    }
-
-    private void installApk(final Context context) {
-        MyLog.d(TAG, "try reInstall app");
-        executorService.execute(() -> {
-            if (TextUtils.isEmpty(Config.getApkPath())) {
-                MyLog.d(TAG, "apkPath is empty");
-                return;
+        final File[] files = new File(Path.CERT).listFiles();
+        if (files == null || files.length <= 0) {
+            MyLog.d(TAG, "cert file empty");
+            if (callback != null) {
+                callback.authResult(false);
             }
-            File folder = new File(Config.getApkPath());
-            if (!folder.exists() || folder.isFile()) {
-                MyLog.d(TAG, "apkPath error");
-                return;
-            }
-            final File[] apks = folder.listFiles();
-            if (apks == null || apks.length == 0) {
-                MyLog.d(TAG, "no apks in apkPath");
-                return;
-            }
-            PackageManager pm = context.getPackageManager();
-            String apkPath = null;
-            PackageInfo apkInfo;
-            PackageInfo selfInfo;
-            final String packageName = context.getPackageName();
-            try {
-                selfInfo = pm.getPackageInfo(packageName, PackageManager.GET_CONFIGURATIONS);
-            } catch (PackageManager.NameNotFoundException e) {
-                e.printStackTrace();
-                return;
-            }
-            for (File file : apks) {
-                apkInfo = pm.getPackageArchiveInfo(file.getAbsolutePath(), PackageManager.GET_ACTIVITIES);
-                if (apkInfo == null) continue;
-                if (packageName.equals(apkInfo.applicationInfo.packageName)
-                        && selfInfo.versionCode == apkInfo.versionCode) {
-                    apkPath = Config.getApkPath() + File.separator + file;
-                    MyLog.d(TAG, "apk is fond");
-                    break;
-                }
-            }
-            if (apkPath == null) {
-                MyLog.d(TAG, "apk is not fond");
-            } else {
-                silentInstall(apkPath);
-            }
-        });
-    }
-
-    private void silentInstall(final String apkPath) {
-        MyLog.d(TAG, "start install!");
-        DataOutputStream dataOutputStream;
-        try {
-            final Process process = Runtime.getRuntime().exec("su");
-            dataOutputStream = new DataOutputStream(process.getOutputStream());
-            String command = "pm install -r " + apkPath + "\n";
-            dataOutputStream.write(command.getBytes(StandardCharsets.UTF_8));
-            dataOutputStream.flush();
-            dataOutputStream.writeBytes("exit\n");
-            dataOutputStream.flush();
-            dataOutputStream.close();
-            process.waitFor();
-            executorService.execute(() -> {
-                final BufferedReader inputStream = new BufferedReader(new InputStreamReader(process.getInputStream()));
-                StringBuilder msg = new StringBuilder();
-                String line;
-                // 读取命令的执行结果
-                while (true) {
-                    try {
-                        if ((line = inputStream.readLine()) == null) break;
-                    } catch (IOException e) {
-                        MyLog.d(TAG, e.toString());
-                        continue;
-                    }
-                    msg.append(line);
-                }
-                MyLog.d(TAG, "the response of installing: " + msg);
-            });
-            executorService.execute(() -> {
-                final BufferedReader errorStream = new BufferedReader(new InputStreamReader(process.getErrorStream()));
-                StringBuilder msg = new StringBuilder();
-                String line;
-                // 读取错误提示
-                while (true) {
-                    try {
-                        if ((line = errorStream.readLine()) == null) break;
-                    } catch (IOException e) {
-                        MyLog.d(TAG, e.toString());
-                        continue;
-                    }
-                    msg.append(line);
-                }
-                MyLog.d(TAG, "the error of installing: " + msg);
-            });
-        } catch (Exception e) {
-            MyLog.d(TAG, e.toString());
+            return;
         }
+        MyLog.d(TAG, "get cert data from file");
+        final String cert = Utils.getStringFromFile(files[0]);
+        auth(context, cert, callback);
     }
 
-    private void initFacePassSDK(final Context context) {
-        executorService.submit(() -> {
-            MyLog.d(TAG, "FacePassHandler initSDK start");
-            FacePassHandler.initSDK(context);
-            while (!FacePassHandler.isAvailable()) {//等待初始化完成
-                SystemClock.sleep(500);
+//    private void installApk(final Context context) {
+//        MyLog.d(TAG, "try reInstall app");
+//        executorService.execute(() -> {
+//            if (TextUtils.isEmpty(Config.getApkPath())) {
+//                MyLog.d(TAG, "apkPath is empty");
+//                return;
+//            }
+//            File folder = new File(Config.getApkPath());
+//            if (!folder.exists() || folder.isFile()) {
+//                MyLog.d(TAG, "apkPath error");
+//                return;
+//            }
+//            final File[] apks = folder.listFiles();
+//            if (apks == null || apks.length == 0) {
+//                MyLog.d(TAG, "no apks in apkPath");
+//                return;
+//            }
+//            PackageManager pm = context.getPackageManager();
+//            String apkPath = null;
+//            PackageInfo apkInfo;
+//            PackageInfo selfInfo;
+//            final String packageName = context.getPackageName();
+//            try {
+//                selfInfo = pm.getPackageInfo(packageName, PackageManager.GET_CONFIGURATIONS);
+//            } catch (PackageManager.NameNotFoundException e) {
+//                e.printStackTrace();
+//                return;
+//            }
+//            for (File file : apks) {
+//                apkInfo = pm.getPackageArchiveInfo(file.getAbsolutePath(), PackageManager.GET_ACTIVITIES);
+//                if (apkInfo == null) continue;
+//                if (packageName.equals(apkInfo.applicationInfo.packageName)
+//                        && selfInfo.versionCode == apkInfo.versionCode) {
+//                    apkPath = Config.getApkPath() + File.separator + file;
+//                    MyLog.d(TAG, "apk is fond");
+//                    break;
+//                }
+//            }
+//            if (apkPath == null) {
+//                MyLog.d(TAG, "apk is not fond");
+//            } else {
+//                silentInstall(apkPath);
+//            }
+//        });
+//    }
+//
+//    private void silentInstall(final String apkPath) {
+//        MyLog.d(TAG, "start install!");
+//        DataOutputStream dataOutputStream;
+//        try {
+//            final Process process = Runtime.getRuntime().exec("su");
+//            dataOutputStream = new DataOutputStream(process.getOutputStream());
+//            String command = "pm install -r " + apkPath + "\n";
+//            dataOutputStream.write(command.getBytes(StandardCharsets.UTF_8));
+//            dataOutputStream.flush();
+//            dataOutputStream.writeBytes("exit\n");
+//            dataOutputStream.flush();
+//            dataOutputStream.close();
+//            process.waitFor();
+//            executorService.execute(() -> {
+//                final BufferedReader inputStream = new BufferedReader(new InputStreamReader(process.getInputStream()));
+//                StringBuilder msg = new StringBuilder();
+//                String line;
+//                // 读取命令的执行结果
+//                while (true) {
+//                    try {
+//                        if ((line = inputStream.readLine()) == null) break;
+//                    } catch (IOException e) {
+//                        MyLog.d(TAG, e.toString());
+//                        continue;
+//                    }
+//                    msg.append(line);
+//                }
+//                MyLog.d(TAG, "the response of installing: " + msg);
+//            });
+//            executorService.execute(() -> {
+//                final BufferedReader errorStream = new BufferedReader(new InputStreamReader(process.getErrorStream()));
+//                StringBuilder msg = new StringBuilder();
+//                String line;
+//                // 读取错误提示
+//                while (true) {
+//                    try {
+//                        if ((line = errorStream.readLine()) == null) break;
+//                    } catch (IOException e) {
+//                        MyLog.d(TAG, e.toString());
+//                        continue;
+//                    }
+//                    msg.append(line);
+//                }
+//                MyLog.d(TAG, "the error of installing: " + msg);
+//            });
+//        } catch (Exception e) {
+//            MyLog.d(TAG, e.toString());
+//        }
+//    }
+
+    private void initFacePassHandler(Context context) {
+        while (!FacePassHandler.isAvailable()) {//等待初始化完成
+            SystemClock.sleep(500);
+        }
+        FacePassConfig config = new FacePassConfig();
+        config.rgbIrLivenessModel = FacePassModel.initModel(context.getAssets(), context.getString(R.string.mcv_liveness_A));
+        config.LivenessModel = FacePassModel.initModel(context.getAssets(), context.getString(R.string.mcv_livenessrgb_A));
+        config.rgbIrLivenessModel = FacePassModel.initModel(context.getAssets(), context.getString(R.string.mcv_liveness_A));
+        config.searchModel = FacePassModel.initModel(context.getAssets(), context.getString(R.string.mcv_feature_Ari));
+        config.poseBlurModel = FacePassModel.initModel(context.getAssets(), context.getString(R.string.mcv_poseblur_A));
+        config.postFilterModel = FacePassModel.initModel(context.getAssets(), context.getString(R.string.mcv_postfilter_A));
+        config.rcAttributeModel = FacePassModel.initModel(context.getAssets(), context.getString(R.string.mcv_rc_attribute_A));
+        config.detectModel = FacePassModel.initModel(context.getAssets(), context.getString(R.string.mcv_rk3568_det_A_det));
+        config.occlusionFilterModel = FacePassModel.initModel(context.getAssets(), context.getString(R.string.mcv_occlusion_B));
+        /* 送识别阈值参数 */
+        config.searchThreshold = 75f;
+        config.livenessThreshold = 85f; //单目推荐80
+        config.faceMinThreshold = 100;
+        config.poseThreshold = new FacePassPose(45f, 45f, 45);
+        config.blurThreshold = 0.8f;
+        config.lowBrightnessThreshold = 30f;
+        config.highBrightnessThreshold = 210f;
+        config.brightnessSTDThreshold = 80f;
+        if (Config.isSingleCamera()) {
+            config.LivenessEnabled = true;
+        } else {
+            config.rgbIrLivenessEnabled = true;
+        }
+        config.rcAttributeEnabled = true;
+
+        /* 其他设置 */
+        config.maxFaceEnabled = false;
+        config.retryCount = 10;
+        File file = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+        if (file == null) {
+            MyLog.d(TAG, "init failed! file is not exist");
+            return;
+        }
+        config.fileRootPath = file.getAbsolutePath();
+
+        /* 创建SDK实例 */
+        try {
+            mFacePassHandler = new FacePassHandler();
+            final int result = FacePassHandler.initHandle(config);
+            MyLog.d(TAG, "init finish! result=" + result);
+            FacePassConfig addFaceConfig = mFacePassHandler.getAddFaceConfig();
+            addFaceConfig.poseThreshold.pitch = 35f;
+            addFaceConfig.poseThreshold.roll = 35f;
+            addFaceConfig.poseThreshold.yaw = 35f;
+            addFaceConfig.blurThreshold = 0.7f;
+            addFaceConfig.lowBrightnessThreshold = 70f;
+            addFaceConfig.highBrightnessThreshold = 220f;
+            addFaceConfig.brightnessSTDThreshold = 60f;
+            addFaceConfig.faceMinThreshold = 40;
+            mFacePassHandler.setAddFaceConfig(addFaceConfig);
+            if (!Config.isSingleCamera()) {
+                mFacePassHandler.setIRConfig(1, 0, 1, 0, 0.3);
             }
-            FacePassConfig config = new FacePassConfig();
-            /*
-             * 配置人脸模型
-             */
-            config.poseBlurModel = FacePassModel.initModel(context.getAssets(), "attr.pose_blur.align.av200.190630.bin");
-
-            if (Config.isSingleCamera()) {//单目使用CPU rgb活体模型
-                config.livenessModel = FacePassModel.initModel(context.getAssets(), "liveness.CPU.rgb.int8.E.bin");
-            } else {//双目使用CPU rgbir活体模型
-                config.rgbIrLivenessModel = FacePassModel.initModel(context.getAssets(), "liveness.CPU.rgbir.int8.E.bin");
-            }
-            //当单目或者双目有一个使用GPU活体模型时，请设置livenessGPUCache
-            //config.livenessGPUCache = FacePassModel.initModel(context.getAssets(), "liveness.GPU.AlgoPolicy.E.cache");
-            config.searchModel = FacePassModel.initModel(context.getAssets(), "feat2.arm.H.v1.0_1core.bin");
-            config.detectModel = FacePassModel.initModel(context.getAssets(), "detector.arm.E.bin");
-            config.detectRectModel = FacePassModel.initModel(context.getAssets(), "detector_rect.arm.E.bin");
-            config.landmarkModel = FacePassModel.initModel(context.getAssets(), "pf.lmk.arm.D.bin");
-            config.rcAttributeModel = FacePassModel.initModel(context.getAssets(), "attr.RC.gray.12M.arm.200229.bin");
-            //config.smileModel = FacePassModel.initModel(mContext.getAssets(), "attr.smile.mgf29.0.1.1.181229.bin");
-            //config.ageGenderModel = FacePassModel.initModel(mContext.getAssets(), "attr.age_gender.surveillance.nnie.av200.0.1.0.190630.bin");
-            config.occlusionFilterModel = FacePassModel.initModel(context.getAssets(), "occlusion.all_attr_configurable.occ.190816.bin");
-            //如果不需要表情和年龄性别功能，smileModel和ageGenderModel可以为null
-            //config.smileModel = null;
-            //config.ageGenderModel = null;
-            /*
-             * 配置识别参数
-             */
-            config.occlusionFilterEnabled = Config.isOcclusionFilterEnabled();
-            config.rcAttributeEnabled = false;
-            config.searchThreshold = Config.getSearchThreshold();
-            config.livenessThreshold = Config.getLivenessThreshold();
-
-            config.livenessEnabled = Config.isLivenessEnabled();
-            config.rgbIrLivenessEnabled = Config.isRgbIrLivenessEnabled();
-
-//                ageGenderEnabledGlobal = (config.ageGenderModel != null);
-            config.faceMinThreshold = 60;
-            config.poseThreshold = new FacePassPose(Config.getPoseRoll(), Config.getPosePitch(), Config.getPoseYaw());
-            config.blurThreshold = Config.getBlurThreshold();
-            config.lowBrightnessThreshold = Config.getLowBrightnessThreshold();
-            config.highBrightnessThreshold = Config.getHighBrightnessThreshold();
-            config.brightnessSTDThreshold = Config.getBrightnessSTDThreshold();
-            config.retryCount = Config.getRetryCount();
-            config.smileEnabled = false;
-            config.maxFaceEnabled = Config.isMaxFaceEnabled();
-
-            File file = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
-            if (file == null) {
-                MyLog.d(TAG, "init failed! file is not exist");
-                return;
-            }
-            config.fileRootPath = file.getAbsolutePath();
-
-            /* 创建SDK实例 */
-            try {
-                mFacePassHandler = new FacePassHandler(config);
-                FacePassConfig addFaceConfig = mFacePassHandler.getAddFaceConfig();
-                addFaceConfig.blurThreshold = Config.getAddFaceBlurThreshold();
-                addFaceConfig.faceMinThreshold = Config.getAddFaceMinThreshold();
-                mFacePassHandler.setAddFaceConfig(addFaceConfig);
-                if (!Config.isSingleCamera()) {
-                    mFacePassHandler.setIRConfig(
-                            0.99940616D,
-                            0.03817749D,
-                            0.99697757D,
-                            -2.1230164D,
-                            0.5D);
-                }
-                checkGroup();
-            } catch (FacePassException e) {
-                MyLog.d(TAG, "init failed! " + e.toString());
-                return;
-            }
-            running = true;
-            startRecognizeThread();
-            startFeedFrameThread();
-            MyLog.d(TAG, "FacePassHandler initSDK finish");
-        });
+            checkGroup();
+        } catch (FacePassException e) {
+            MyLog.d(TAG, "init failed! " + e.toString());
+            return;
+        }
+        running = true;
+        startRecognizeThread();
+        startFeedFrameThread();
+        MyLog.d(TAG, "FacePassHandler initSDK finish");
     }
 
     private void startFeedFrameThread() {
@@ -310,7 +304,45 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
                 if (dataPacket == null || mFacePassHandler == null) {
                     continue;
                 }
-                FacePassDetectionResult detectionResult;
+//                FacePassDetectionResult detectionResult;
+//                try {
+//                    if (Config.isSingleCamera()) {
+//                        detectionResult = mFacePassHandler.feedFrame(dataPacket.getImageRGB());
+//                    } else if (dataPacket.getImageIR() != null) {
+//                        detectionResult = mFacePassHandler.feedFrameRGBIR(dataPacket.getImageRGB(), dataPacket.getImageIR());
+//                    } else {
+//                        continue;
+//                    }
+//                } catch (FacePassException e) {
+//                    continue;
+//                }
+//                if (detectionResult != null) {
+//                    if (detectFaceCallback != null) {
+//                        RectF[] rectList = new RectF[detectionResult.faceList.length];
+//                        for (int i = 0; i < detectionResult.faceList.length; i++) {
+//                            rectList[i] = new RectF();
+//                            rectList[i].left = detectionResult.faceList[i].rect.left;
+//                            rectList[i].right = detectionResult.faceList[i].rect.right;
+//                            rectList[i].top = detectionResult.faceList[i].rect.top;
+//                            rectList[i].bottom = detectionResult.faceList[i].rect.bottom;
+//                            rectList[i] = convert(rectList[i]);
+//                        }
+//                        detectFaceCallback.onDetectFace(rectList);
+//                    }
+//                    if (detectionResult.message.length > 0) {
+//                        MyLog.d(TAG, "offer detectionResult，DetectResultQueue.size=" + mDetectResultQueue.size());
+//                        if ((detectionResult.faceList[0].rect.right - detectionResult.faceList[0].rect.left) > Config.getFaceMinThreshold()) {
+//                            if (mDetectResultQueue.size() > 0) mDetectResultQueue.poll();
+//                            mDetectResultQueue.offer(detectionResult.message);
+//                        } else {
+//                            if (recognizeCallback != null) {
+//                                recognizeCallback.recognizeFailed("请再靠近一些");
+//                            }
+//                        }
+//                    }
+//                }
+
+                FacePassTrackResult detectionResult;
                 try {
                     if (Config.isSingleCamera()) {
                         detectionResult = mFacePassHandler.feedFrame(dataPacket.getImageRGB());
@@ -324,28 +356,50 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
                 }
                 if (detectionResult != null) {
                     if (detectFaceCallback != null) {
-                        RectF[] rectList = new RectF[detectionResult.faceList.length];
-                        for (int i = 0; i < detectionResult.faceList.length; i++) {
+                        RectF[] rectList = new RectF[detectionResult.trackedFaces.length];
+                        for (int i = 0; i < detectionResult.trackedFaces.length; i++) {
                             rectList[i] = new RectF();
-                            rectList[i].left = detectionResult.faceList[i].rect.left;
-                            rectList[i].right = detectionResult.faceList[i].rect.right;
-                            rectList[i].top = detectionResult.faceList[i].rect.top;
-                            rectList[i].bottom = detectionResult.faceList[i].rect.bottom;
+                            rectList[i].left = detectionResult.trackedFaces[i].rect.left;
+                            rectList[i].right = detectionResult.trackedFaces[i].rect.right;
+                            rectList[i].top = detectionResult.trackedFaces[i].rect.top;
+                            rectList[i].bottom = detectionResult.trackedFaces[i].rect.bottom;
                             rectList[i] = convert(rectList[i]);
                         }
                         detectFaceCallback.onDetectFace(rectList);
                     }
                     if (detectionResult.message.length > 0) {
                         MyLog.d(TAG, "offer detectionResult，DetectResultQueue.size=" + mDetectResultQueue.size());
-                        if ((detectionResult.faceList[0].rect.right - detectionResult.faceList[0].rect.left) > Config.getFaceMinThreshold()) {
+                        if ((detectionResult.trackedFaces[0].rect.right - detectionResult.trackedFaces[0].rect.left) > 140) {
                             if (mDetectResultQueue.size() > 0) mDetectResultQueue.poll();
-                            mDetectResultQueue.offer(detectionResult.message);
+                            FacePassTrackOptions[] trackOpts = new FacePassTrackOptions[detectionResult.images.length];
+                            for (int i = 0; i < detectionResult.images.length; ++i) {
+                                if (detectionResult.images[i].rcAttr.respiratorType != FacePassRCAttribute.FacePassRespiratorType.NO_RESPIRATOR) {
+                                    float searchThreshold = 60f;
+                                    float livenessThreshold = 75f; // -1.0f will not change the liveness threshold
+                                    trackOpts[i] = new FacePassTrackOptions(detectionResult.images[i].trackId, searchThreshold, livenessThreshold);
+                                } else {
+                                    trackOpts[i] = new FacePassTrackOptions(detectionResult.images[i].trackId, -1f, -1f);
+                                }
+//                                    Log.d(DEBUG_TAG, String.format("rc attribute in FacePassImage, hairType: 0x%x beardType: 0x%x hatType: 0x%x respiratorType: 0x%x glassesType: 0x%x skinColorType: 0x%x",
+//                                            detectionResult.images[i].rcAttr.hairType.ordinal(),
+//                                            detectionResult.images[i].rcAttr.beardType.ordinal(),
+//                                            detectionResult.images[i].rcAttr.hatType.ordinal(),
+//                                            detectionResult.images[i].rcAttr.respiratorType.ordinal(),
+//                                            detectionResult.images[i].rcAttr.glassesType.ordinal(),
+//                                            detectionResult.images[i].rcAttr.skinColorType.ordinal()));
+                            }
+                            RecognizeData mRecData = new RecognizeData(detectionResult.message, trackOpts);
+                            mDetectResultQueue.offer(mRecData);
                         } else {
                             if (recognizeCallback != null) {
                                 recognizeCallback.recognizeFailed("请再靠近一些");
                             }
                         }
+//                    } else {
+//                        MyLog.d(TAG, "detectionResult.message.length=0");
                     }
+//                } else {
+//                    MyLog.d(TAG, "detectionResult null");
                 }
             }
         });
@@ -405,12 +459,12 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
 
     private void startRecognizeThread() {
         executorService.submit(() -> {
-            byte[] detectionResult;
+            RecognizeData recognizeData;
             FacePassRecognitionResult[] recognizeResult;
             MyLog.d(TAG, "start RecognizeThread");
             while (running) {
                 try {
-                    detectionResult = mDetectResultQueue.take();
+                    recognizeData = mDetectResultQueue.take();
                     if (recognizeCallback == null) {
                         MyLog.d(TAG, "recognizeCallback is null");
                         continue;
@@ -421,8 +475,10 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
                         recognizeCallback.recognizeFailed("人脸未注册");
                         continue;
                     }
-                    //人脸数据提交SDK进行识别
-                    recognizeResult = mFacePassHandler.recognize(getCurrentGroup(), detectionResult);
+                    //人脸数据提交SDK进行识别 暂时只识别一个
+                    recognizeResult = mFacePassHandler.recognize(getCurrentGroup(), recognizeData.message,
+                            1, recognizeData.trackOpt[0].trackId, FacePassRecogMode.FP_REG_MODE_DEFAULT,
+                            recognizeData.trackOpt[0].livenessThreshold, recognizeData.trackOpt[0].searchThreshold);
                 } catch (FacePassException | InterruptedException e) {
                     MyLog.d(TAG, "recognize : " + e.toString());
                     continue;
@@ -446,14 +502,14 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
                         } else {
                             MyLog.d(TAG, "recognize :");
                         }
+                        MyLog.d(TAG, "recognize : trackId reset");//如果识别失败，重置人脸id可立即进行下次识别
+                        mFacePassHandler.setMessage(result.trackId, FacePassTrackIdState.TRACK_ID_RETRY);
                     }
-//                    MyLog.d(TAG, "recognize : trackId reset");
-//                    mFacePassHandler.setMessage(result.trackId, FacePassTrackIdState.TRACK_ID_RETRY);
                 }
                 if (recognizeCallback != null) {
-                    if (faceTokenList.size() > 0){
+                    if (faceTokenList.size() > 0) {
                         recognizeCallback.recognizeSuccess(faceTokenList);
-                    }else {
+                    } else {
                         recognizeCallback.recognizeFailed("人脸未注册");
                     }
                 }
@@ -707,14 +763,14 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
             if (callback != null) {
                 callback.authResult(false);
             }
-            MyLog.d(TAG, "auth failed! cert is empty");
+            MyLog.d(TAG, "auth failed! content is empty");
         } else {
-            new AuthApi().authDevice(context, cert, "", authApplyResponse -> {
+            FacePassHandler.authDevice(context, cert, "", authApplyResponse -> {
                 authStatus = authApplyResponse.errorCode == 0;
                 MyLog.d(TAG, "auth " + authStatus);
                 if (authStatus) {
                     context.getSharedPreferences(SP_NAME, Context.MODE_PRIVATE).edit().putBoolean(KEY_AUTH, true).apply();
-                    initFacePassSDK(context);
+                    executorService.submit(() -> initFacePassHandler(context));
                 }
                 if (callback != null) {
                     callback.authResult(authStatus);
@@ -753,26 +809,21 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
             return null;
         }
         final Bitmap bitmap = BitmapFactory.decodeFile(photoPath);
-        final FacePassDetectFacesResult detectFaces;
+        final FacePassExtractFeatureResult detectFaces;
         try {
-            detectFaces = mFacePassHandler.detectFaces(bitmap, 0);
+            detectFaces = mFacePassHandler.extractFeature(bitmap, false, 0);
         } catch (FacePassException e) {
             e.printStackTrace();
             MyLog.d(TAG, "compare failed! detectFaces error: " + e.toString());
             return null;
         }
-        if (detectFaces == null || detectFaces.faceList == null || detectFaces.faceList.length == 0) {
+        if (detectFaces == null || detectFaces.retCode != 0) {
             MyLog.d(TAG, "compare failed! no faces found");
             return null;
         }
         final FacePassSearchResult[] searchResults;
         try {
-            searchResults = mFacePassHandler.compare1xN(
-                    bitmap,
-                    0,
-                    detectFaces.faceList[0].lData,
-                    getCurrentGroup(),
-                    mFacePassHandler.getLocalGroupFaceNum(getCurrentGroup()));
+            searchResults = mFacePassHandler.search(detectFaces.featureData, getCurrentGroup(), 1);
         } catch (FacePassException e) {
             e.printStackTrace();
             MyLog.d(TAG, "compare failed! compare1xN error: " + e.toString());
@@ -812,16 +863,16 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
 
     @Override
     public List<String> getAllFaceToken() {
-        if (mFacePassHandler == null){
+        if (mFacePassHandler == null) {
             return new ArrayList<>();
         }
         try {
             final byte[][] info = mFacePassHandler.getLocalGroupInfo(getCurrentGroup());
-            if (info == null || info.length == 0){
+            if (info == null || info.length == 0) {
                 return new ArrayList<>();
             }
             List<String> list = new ArrayList<>();
-            for (byte[] bytes : info){
+            for (byte[] bytes : info) {
                 list.add(new String(bytes));
             }
             return list;
@@ -858,39 +909,54 @@ public class KsFaceSDK implements FaceSDK, CameraDataListener {
         }
     }
 
-    /**
-     * 检查频繁启动原因，是否有报错日志
-     *
-     * @return -1 上次启动有报错日志，但不是UnsatisfiedLinkError，程序其他问题导致的崩溃，不予理会
-     * 0 上次启动没有报错日志，可能是授权丢失被强制退出进程，需要重新走授权流程（so文件可能同时丢失，重置授权状态后重装比较安全一点）
-     * 1 上次启动有报错日志，并且是UnsatisfiedLinkError，so文件丢失，需要重新安装app
-     */
-    private int checkCrashFile() {
-        if (TextUtils.isEmpty(Config.getCrashPath())) return 0;
-        File file = new File(Config.getCrashPath());
-        if (!file.exists() || file.isFile()) return 0;
-        final String[] list = file.list();
-        if (list == null || list.length < 1) return 0;
-        long t;
-        try {
-            String[] split = list[list.length - 1].split("\\.")[0].split("-");
-            t = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault()).parse(split[1]).getTime();
-        } catch (Exception e) {
-            return 0;
+//    /**
+//     * 检查频繁启动原因，是否有报错日志
+//     *
+//     * @return -1 上次启动有报错日志，但不是UnsatisfiedLinkError，程序其他问题导致的崩溃，不予理会
+//     * 0 上次启动没有报错日志，可能是授权丢失被强制退出进程，需要重新走授权流程（so文件可能同时丢失，重置授权状态后重装比较安全一点）
+//     * 1 上次启动有报错日志，并且是UnsatisfiedLinkError，so文件丢失，需要重新安装app
+//     */
+//    private int checkCrashFile() {
+//        if (TextUtils.isEmpty(Config.getCrashPath())) return 0;
+//        File file = new File(Config.getCrashPath());
+//        if (!file.exists() || file.isFile()) return 0;
+//        final String[] list = file.list();
+//        if (list == null || list.length < 1) return 0;
+//        long t;
+//        try {
+//            String[] split = list[list.length - 1].split("\\.")[0].split("-");
+//            t = new SimpleDateFormat("yyyyMMddHHmmss", Locale.getDefault()).parse(split[1]).getTime();
+//        } catch (Exception e) {
+//            return 0;
+//        }
+//        if ((System.currentTimeMillis() - t) < 5000) {
+//            try (BufferedReader reader = new BufferedReader(new FileReader(Config.getCrashPath() + File.separator + list[list.length - 1]))) {
+//                String s = reader.readLine();
+//                while (s != null) {
+//                    if (s.contains("UnsatisfiedLinkError")) {
+//                        return 1;
+//                    }
+//                    s = reader.readLine();
+//                }
+//            } catch (Exception e) {
+//                return -1;
+//            }
+//        }
+//        return -1;
+//    }
+
+    public static class RecognizeData {
+        public byte[] message;
+        public FacePassTrackOptions[] trackOpt;
+
+        //        public RecognizeData(byte[] message) {
+//            this.message = message;
+//            this.trackOpt = null;
+//        }
+//
+        public RecognizeData(byte[] message, FacePassTrackOptions[] opt) {
+            this.message = message;
+            this.trackOpt = opt;
         }
-        if ((System.currentTimeMillis() - t) < 5000) {
-            try (BufferedReader reader = new BufferedReader(new FileReader(Config.getCrashPath() + File.separator + list[list.length - 1]))) {
-                String s = reader.readLine();
-                while (s != null) {
-                    if (s.contains("UnsatisfiedLinkError")) {
-                        return 1;
-                    }
-                    s = reader.readLine();
-                }
-            } catch (Exception e) {
-                return -1;
-            }
-        }
-        return -1;
     }
 }

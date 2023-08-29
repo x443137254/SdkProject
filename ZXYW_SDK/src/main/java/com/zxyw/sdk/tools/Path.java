@@ -11,6 +11,7 @@ public final class Path {
     public static final String FTP_ROOT = Environment.getExternalStorageDirectory() + File.separator + "ZXYW";
     public static final String LOG = FTP_ROOT + File.separator + "log";
     public static final String APK = FTP_ROOT + File.separator + "apk";
+    public static final String CERT = FTP_ROOT + File.separator + "cert";
     public static final String BANNER = FTP_ROOT + File.separator + "banner";
     public static final String CRASH = FTP_ROOT + File.separator + "crash";
     public static final String TEMP = FTP_ROOT + File.separator + "temp";
@@ -43,6 +44,7 @@ public final class Path {
         mkDir(new File(LOGO));
         mkDir(new File(LOGO2));
         mkDir(new File(RS232_UPGRADE));
+        mkDir(new File(CERT));
     }
 
     private static void mkDir(File file) {

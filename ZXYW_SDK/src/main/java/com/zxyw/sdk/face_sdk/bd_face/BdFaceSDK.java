@@ -664,7 +664,7 @@ public class BdFaceSDK implements FaceSDK {
 
     private void initConfig() {
         if (faceDetect != null) {
-            SingleBaseConfig.getBaseConfig().setRgbDetectDirection(Config.getPreviewOrientation());
+            SingleBaseConfig.getBaseConfig().setRgbDetectDirection(Config.getRecognizeOrientation());
             SingleBaseConfig.getBaseConfig().setNirDetectDirection(Config.getRecognizeOrientation());
             SingleBaseConfig.getBaseConfig().setMirrorNIR(Config.isMirror() ? 1 : 0);
 
