@@ -10,7 +10,7 @@ android {
         minSdkVersion 21
         //noinspection OldTargetApi
         targetSdkVersion 30
-        versionCode 53
+        versionCode 54
         versionName "3.4"
         multiDexEnabled true
         ndk {
