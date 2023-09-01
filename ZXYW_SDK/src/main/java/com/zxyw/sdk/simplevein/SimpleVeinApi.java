@@ -106,7 +106,12 @@ public class SimpleVeinApi {
                     log("receive: " + bytes2string(receiveData));
                     handler.removeCallbacks(retryRunnable);
                     retryCount = 0;
-                    pars(buff, len);
+                    try {
+                        pars(buff, len);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+
+                    }
                 }
             }
         });
@@ -331,14 +336,19 @@ public class SimpleVeinApi {
     }
 
     /**
-     * 指静脉比对
+     * 判断指静脉模板与读取的特征是否匹配
      *
-     * @param templateDb   数据库中的模板
-     * @param templateRead 当前识别到的特征
      * @return 若识别未同一手指，返回更新后的模板，否则返回null或-1等长度小于10的值
      */
-    public String match(String templateDb, String templateRead) {
-        return VeinApi.FVVerifyUser(templateDb, templateRead, 80);
+    public String charMatch(String template, String charData) {
+        return VeinApi.FVVerifyUser(template, charData, 80);
+    }
+
+    /**
+     * 判断2个指静脉模板是否相似
+     */
+    public boolean templateMatch(String template1, String template2) {
+        return VeinApi.FVTempMatch(template1, template2, 3) > 0;
     }
 
     public void getTemplate() {

@@ -531,6 +531,16 @@ public class VeinApi {
     public native static long FVSocketClose(long lSocket);
 
     /**
+     * 功能：模板与模板比对查重
+     * 参数：
+     * sTemp1:[IN] BASE64编码模板1
+     * sTemp2:[IN] BASE64编码模板2
+     * lTh:[IN] 1-5安全等级
+     * 返回值: >0比对成功，也就是模板相似
+     */
+    public native static long FVTempMatch(String sTemp1, String sTemp2, long lTh);
+
+    /**
      * 功能：连接服务器
      * 参数：
      * sServerIP:[IN] 服务器IP
@@ -1445,7 +1455,9 @@ public class VeinApi {
         }
         //PrintfDebug("sendsize:" + size);
         return size;
-    };
+    }
+
+    ;
 
     //通过USB接收数据
     private static synchronized int _UsbRecvBuf(byte[] buf, int size, int timeout) {
