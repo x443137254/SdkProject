@@ -116,7 +116,7 @@ public class BdFaceSDK implements FaceSDK {
             public void run() {
                 getCertificate(context, url, null);
             }
-        }, 2000);
+        }, 3000);
     }
 
     private void toast(Context context, String s) {

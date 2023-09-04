@@ -53,6 +53,9 @@ public class Speaker {
     private Thread recognizeThread;
     private Thread wakeupThread;
     private String lastMessage;
+    private boolean manVoice;//是否使用男音
+    private int speed = 60;//语速
+    private int tone = 60;//音调
 
     private Speaker() {
         queue = new LinkedList<>();
@@ -415,24 +418,60 @@ public class Speaker {
         return mTts != null;
     }
 
+    public boolean isManVoice() {
+        return manVoice;
+    }
+
+    public void setManVoice(boolean manVoice) {
+        this.manVoice = manVoice;
+    }
+
+    public int getSpeed() {
+        return speed;
+    }
+
+    public void setSpeed(int speed) {
+        if (speed > 0 && speed < 100) {
+            this.speed = speed;
+        }
+    }
+
+    public int getTone() {
+        return tone;
+    }
+
+    public void setTone(int tone) {
+        if (tone > 0 && tone < 100) {
+            this.tone = tone;
+        }
+    }
+
     private void setTtsParam(Context context) {
         Setting.setShowLog(false);
         // 清空参数
         mTts.setParameter(SpeechConstant.PARAMS, null);
         //设置合成
         mTts.setParameter(SpeechConstant.ENGINE_TYPE, SpeechConstant.TYPE_XTTS);
-        //设置发音人资源路径
-        final String s = ResourceUtil.generateResourcePath(context, ResourceUtil.RESOURCE_TYPE.assets, "xtts/common.jet")
-                + ";"
-                + ResourceUtil.generateResourcePath(context, ResourceUtil.RESOURCE_TYPE.assets, "xtts/xiaoyan.jet");
-        mTts.setParameter(ResourceUtil.TTS_RES_PATH, s);
         //设置发音人
-        mTts.setParameter(SpeechConstant.VOICE_NAME, "xiaoyan");
+        final String s;
+        if (manVoice) {
+            mTts.setParameter(SpeechConstant.VOICE_NAME, "xiaofeng");
+            s = ResourceUtil.generateResourcePath(context, ResourceUtil.RESOURCE_TYPE.assets, "xtts/common.jet")
+                    + ";"
+                    + ResourceUtil.generateResourcePath(context, ResourceUtil.RESOURCE_TYPE.assets, "xtts/xiaofeng.jet");
+        } else {
+            mTts.setParameter(SpeechConstant.VOICE_NAME, "xiaoyan");
+            s = ResourceUtil.generateResourcePath(context, ResourceUtil.RESOURCE_TYPE.assets, "xtts/common.jet")
+                    + ";"
+                    + ResourceUtil.generateResourcePath(context, ResourceUtil.RESOURCE_TYPE.assets, "xtts/xiaoyan.jet");
+        }
+        mTts.setParameter(ResourceUtil.TTS_RES_PATH, s);
+
         //mTts.setParameter(SpeechConstant.TTS_DATA_NOTIFY,"1");//支持实时音频流抛出，仅在synthesizeToUri条件下支持
         //设置合成语速
-        mTts.setParameter(SpeechConstant.SPEED, "60");
+        mTts.setParameter(SpeechConstant.SPEED, String.valueOf(speed));
         //设置合成音调
-        mTts.setParameter(SpeechConstant.PITCH, "60");
+        mTts.setParameter(SpeechConstant.PITCH, String.valueOf(tone));
         //设置合成音量
         mTts.setParameter(SpeechConstant.VOLUME, "100");
         //设置播放器音频流类型
