@@ -44,7 +44,7 @@ public class SimpleVeinApi {
     //    private String enrollString;
     private EnrollCallback enrollCallback;
     private ReadCallback readCallback;
-    private boolean reading;
+    private boolean readLoop;
     private String serialPath = "/dev/tty-finger";
     private int baudRate = 57600;
     private boolean showLog;
@@ -146,7 +146,7 @@ public class SimpleVeinApi {
                         packet = new Packet(data);
                     } catch (Exception e) {
                         e.printStackTrace();
-                        if (reading) {
+                        if (readLoop) {
                             getTemplate();
                         }
                         break;
@@ -162,7 +162,7 @@ public class SimpleVeinApi {
                                     readTemplate();
                                     break;
                                 case VeinApi.XG_ERR_FAIL://读取失败
-                                    if (reading) {
+                                    if (readLoop) {
                                         log("pars: read timeout! try again");
                                         getTemplate();
                                     }
@@ -206,7 +206,7 @@ public class SimpleVeinApi {
                                 if (readCallback != null) {
                                     readCallback.readTemplate(VeinApi.FVEncodeBase64(template, template.length));
                                 }
-                                if (reading) {
+                                if (readLoop) {
                                     getTemplate();
                                 }
 //                                final String tempString = VeinApi.FVEncodeBase64(template, template.length);
@@ -352,19 +352,27 @@ public class SimpleVeinApi {
     }
 
     public void getTemplate() {
-        reading = true;
+        getTemplate(false);
+    }
+
+    private void getTemplate(boolean loop) {
+        readLoop = loop;
         final byte[] bytes = new Packet((byte) VeinApi.XG_CMD_GET_CHARA, null).generateBytes();
         send(bytes);
     }
 
+    public void getTemplateLoop() {
+        getTemplate(true);
+    }
+
     public void cancelCmd() {
-        reading = false;
+        readLoop = false;
         final byte[] bytes = new Packet((byte) VeinApi.XG_CMD_CANCEL, null).generateBytes();
         send(bytes);
     }
 
     public void enroll() {
-        if (reading) {
+        if (readLoop) {
             cancelCmd();
             handler.postDelayed(this::enroll, 200);
         } else {
