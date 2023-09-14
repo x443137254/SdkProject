@@ -1,8 +1,11 @@
 package com.zxyw.sdk.simplevein;
 
+import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.SystemClock;
+
+import androidx.annotation.RequiresApi;
 
 import com.xgzx.veinmanager.VeinApi;
 import com.zxyw.sdk.tools.MyLog;
@@ -12,6 +15,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Arrays;
+import java.util.Base64;
 
 import android_serialport_api.SerialPort;
 
@@ -77,6 +81,7 @@ public class SimpleVeinApi {
         this.baudRate = baudRate;
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.O)
     public void init() {
         running = true;
         receiveThread = new Thread(() -> {
@@ -122,6 +127,7 @@ public class SimpleVeinApi {
         this.showLog = showLog;
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.O)
     private void pars(byte[] data, int len) {
         if (lastSend == null) return;
         switch (lastSend[3]) {
@@ -162,6 +168,9 @@ public class SimpleVeinApi {
                                     readTemplate();
                                     break;
                                 case VeinApi.XG_ERR_FAIL://读取失败
+                                    if (readCallback != null) {
+                                        readCallback.readTemplate(null);
+                                    }
                                     if (readLoop) {
                                         log("pars: read timeout! try again");
                                         getTemplate();
@@ -199,12 +208,15 @@ public class SimpleVeinApi {
                         } else {
                             if (readCmd == VeinApi.XG_CMD_READ_ENROLL) {
                                 if (enrollCallback != null) {
-                                    enrollCallback.enrollFinish(true, VeinApi.FVEncodeBase64(template, template.length));
+//                                    enrollCallback.enrollFinish(true, VeinApi.FVEncodeBase64(template, template.length));
+                                    enrollCallback.enrollFinish(true, Base64.getEncoder().encodeToString(template));
                                 }
 //                                enrollString = VeinApi.FVEncodeBase64(template, template.length);
                             } else {
                                 if (readCallback != null) {
-                                    readCallback.readTemplate(VeinApi.FVEncodeBase64(template, template.length));
+                                    final long t = System.currentTimeMillis();
+//                                    readCallback.readTemplate(VeinApi.FVEncodeBase64(template, template.length));
+                                    readCallback.readTemplate(Base64.getEncoder().encodeToString(template));
                                 }
                                 if (readLoop) {
                                     getTemplate();
