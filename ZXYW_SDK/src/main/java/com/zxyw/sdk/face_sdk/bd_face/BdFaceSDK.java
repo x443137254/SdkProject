@@ -16,6 +16,9 @@ import android.provider.Settings;
 import android.text.TextUtils;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
 import com.baidu.idl.main.facesdk.FaceAuth;
 import com.baidu.idl.main.facesdk.FaceDarkEnhance;
 import com.baidu.idl.main.facesdk.FaceDetect;
@@ -93,14 +96,11 @@ public class BdFaceSDK implements FaceSDK {
     private final Map<String, AddFaceCallback> addFaceMap = new HashMap<>();
     private final Object addFaceLock = new Object();
     private final Object recognizeLock = new Object();
-    private boolean active;//是否是通过网络获取的激活码激活
-    private String authUrl;
     private byte[] cacheFrame;
 
     @Override
     public void init(final Context context, final List<String> groupList, final String url, InitFinishCallback callback) {
         this.groupList = groupList;
-        this.authUrl = url;
         initFinishCallback = callback;
 //        String s = checkLostFile();
 //        MyLog.d(TAG, "missing file: " + s);
@@ -127,20 +127,46 @@ public class BdFaceSDK implements FaceSDK {
     public void getCertificate(Context context, String url, AuthCallback callback) {
         String cert = context.getSharedPreferences(spName, Context.MODE_PRIVATE).getString(keyName, null);
         if (cert == null) {
-            if (!TextUtils.isEmpty(url)) {
-                String uuid = context.getSharedPreferences(spName, Context.MODE_PRIVATE).getString(KEY_UUID, null);
-                if (uuid == null) {
-                    uuid = UUID.randomUUID().toString();
-                    context.getSharedPreferences(spName, Context.MODE_PRIVATE).edit().putString(KEY_UUID, uuid).apply();
+            getCertOnline(context, url, callback);
+        } else {
+            authOnline(cert, context, callback, false);
+        }
+    }
+
+    public void clearCert(Context context) {
+        context.getSharedPreferences(spName, Context.MODE_PRIVATE).edit().remove(keyName).apply();
+    }
+
+    public void getCertOnline(Context context, String url, AuthCallback callback) {
+        if (!TextUtils.isEmpty(url)) {
+            String uuid = context.getSharedPreferences(spName, Context.MODE_PRIVATE).getString(KEY_UUID, null);
+            if (uuid == null) {
+                uuid = UUID.randomUUID().toString();
+                context.getSharedPreferences(spName, Context.MODE_PRIVATE).edit().putString(KEY_UUID, uuid).apply();
+            }
+            final JSONObject jsonObject = new JSONObject();
+            try {
+                jsonObject.put("android_id", Utils.string2MD5(Settings.System.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID)));
+                jsonObject.put("cpu_sn", a());
+                jsonObject.put("uuid", Utils.string2MD5(uuid));
+                jsonObject.put("bd_device_id", new FaceAuth().getDeviceId(context));
+                jsonObject.put("sn", Auth.readSN(context));
+            } catch (JSONException e) {
+                if (callback != null) {
+                    callback.authResult(false);
                 }
-                final JSONObject jsonObject = new JSONObject();
-                try {
-                    jsonObject.put("android_id", Utils.string2MD5(Settings.System.getString(context.getContentResolver(), Settings.Secure.ANDROID_ID)));
-                    jsonObject.put("cpu_sn", a());
-                    jsonObject.put("uuid", Utils.string2MD5(uuid));
-                    jsonObject.put("bd_device_id", new FaceAuth().getDeviceId(context));
-                    jsonObject.put("sn", Auth.readSN(context));
-                } catch (JSONException e) {
+                if (initFinishCallback != null) {
+                    initFinishCallback.initFinish(false);
+                    initFinishCallback = null;
+                }
+                toast(context, e.toString());
+                return;
+            }
+            final String data = jsonObject.toString();
+            MyLog.d(TAG, "http request body: " + data);
+            HttpUtil.post(url, AESUtil.encode(data), new HttpUtil.HttpCallback() {
+                @Override
+                public void onFailed(String error) {
                     if (callback != null) {
                         callback.authResult(false);
                     }
@@ -148,14 +174,16 @@ public class BdFaceSDK implements FaceSDK {
                         initFinishCallback.initFinish(false);
                         initFinishCallback = null;
                     }
-                    toast(context, e.toString());
-                    return;
+                    toast(context, error);
                 }
-                final String data = jsonObject.toString();
-                MyLog.d(TAG, "http request body: " + data);
-                HttpUtil.post(url, AESUtil.encode(data), new HttpUtil.HttpCallback() {
-                    @Override
-                    public void onFailed(String error) {
+
+                @Override
+                public void onSuccess(String bodyString) {
+                    JSONObject json;
+                    try {
+                        json = new JSONObject(bodyString);
+                    } catch (JSONException e) {
+                        MyLog.e(TAG, "获取百度人脸识别激活码失败！返回数据格式错误");
                         if (callback != null) {
                             callback.authResult(false);
                         }
@@ -163,16 +191,15 @@ public class BdFaceSDK implements FaceSDK {
                             initFinishCallback.initFinish(false);
                             initFinishCallback = null;
                         }
-                        toast(context, error);
+                        toast(context, "获取百度人脸识别激活码失败！数据格式错误");
+                        return;
                     }
-
-                    @Override
-                    public void onSuccess(String bodyString) {
-                        JSONObject json;
+                    if (json.optInt("status") == 200) {
+                        final String s;
                         try {
-                            json = new JSONObject(bodyString);
-                        } catch (JSONException e) {
-                            MyLog.e(TAG, "获取百度人脸识别激活码失败！返回数据格式错误");
+                            s = json.optString("result");
+                        } catch (Exception e) {
+                            e.printStackTrace();
                             if (callback != null) {
                                 callback.authResult(false);
                             }
@@ -180,67 +207,58 @@ public class BdFaceSDK implements FaceSDK {
                                 initFinishCallback.initFinish(false);
                                 initFinishCallback = null;
                             }
-                            toast(context, "获取百度人脸识别激活码失败！数据格式错误");
+                            toast(context, "获取百度人脸识别激活码失败！result is null");
                             return;
                         }
-                        if (json.optInt("status") == 200) {
-                            final String s;
-                            try {
-                                s = json.optString("result");
-                            } catch (Exception e) {
-                                e.printStackTrace();
-                                if (callback != null) {
-                                    callback.authResult(false);
-                                }
-                                if (initFinishCallback != null) {
-                                    initFinishCallback.initFinish(false);
-                                    initFinishCallback = null;
-                                }
-                                toast(context, "获取百度人脸识别激活码失败！result is null");
-                                return;
-                            }
-                            if (!TextUtils.isEmpty(s)) {
-                                active = true;
-                                authOnline(s, context, callback);
-                            }
-                        } else {
-                            final String s = "获取百度人脸识别激活码失败！" + json.optString("msg");
-                            MyLog.e(TAG, s);
-                            if (initFinishCallback != null) {
-                                initFinishCallback.initFinish(false);
-                                initFinishCallback = null;
-                            }
-                            toast(context, s);
+                        if (!TextUtils.isEmpty(s)) {
+                            authOnline(s, context, callback, true);
                         }
+                    } else {
+                        final String s = "获取百度人脸识别激活码失败！" + json.optString("msg");
+                        MyLog.e(TAG, s);
+                        if (initFinishCallback != null) {
+                            initFinishCallback.initFinish(false);
+                            initFinishCallback = null;
+                        }
+                        toast(context, s);
                     }
-                });
-            } else {
-                final String s = "获取百度人脸识别激活码失败！未设置自动激活url";
-                MyLog.e(TAG, s);
-                if (initFinishCallback != null) {
-                    initFinishCallback.initFinish(false);
-                    initFinishCallback = null;
                 }
-                toast(context, s);
-            }
+            });
         } else {
-            active = false;
-            authOnline(cert, context, callback);
+            final String s = "获取百度人脸识别激活码失败！未设置自动激活url";
+            MyLog.e(TAG, s);
+            if (initFinishCallback != null) {
+                initFinishCallback.initFinish(false);
+                initFinishCallback = null;
+            }
+            toast(context, s);
         }
     }
 
-    private void authOnline(String cert, Context context, AuthCallback callback) {
+    public void authInput(@NonNull String cert, @NonNull Context context, @Nullable AuthCallback callback) {
+        faceAuth.initLicenseOnLine(context, cert, (code, response) -> {
+            if (code == 0) {
+                context.getSharedPreferences(spName, Context.MODE_PRIVATE).edit().putString(keyName, AESUtil.encode(cert)).apply();
+                if (callback != null) callback.authResult(true);
+                onAuthSuccess(context);
+            } else if (callback != null) {
+                callback.authResult(false);
+            }
+        });
+    }
+
+    private void authOnline(String cert, Context context, AuthCallback callback, boolean toast) {
         faceAuth.initLicenseOnLine(context, AESUtil.decode(cert), (code, response) -> {
             if (code == 0) {
                 context.getSharedPreferences(spName, Context.MODE_PRIVATE).edit().putString(keyName, cert).apply();
                 if (callback != null) callback.authResult(true);
                 onAuthSuccess(context);
-                if (active) {
+                if (toast) {
                     Speaker.getInstance().speak("人脸识别激活成功");
                 }
-            } else if (!active) {//如果激活失败并且使用本地激活码的时候，清除激活码重新在线获取一次激活码
-                context.getSharedPreferences(spName, Context.MODE_PRIVATE).edit().remove(keyName).apply();
-                getCertificate(context, authUrl, null);
+//            } else if (!active) {//如果激活失败并且使用本地激活码的时候，清除激活码重新在线获取一次激活码
+//                context.getSharedPreferences(spName, Context.MODE_PRIVATE).edit().remove(keyName).apply();
+//                getCertificate(context, authUrl, null);
             } else {
                 if (callback != null) {
                     callback.authResult(false);
@@ -249,7 +267,7 @@ public class BdFaceSDK implements FaceSDK {
                     initFinishCallback.initFinish(false);
                     initFinishCallback = null;
                 }
-                if (active) {
+                if (toast) {
                     Speaker.getInstance().speak("人脸识别激活失败");
                 }
                 toast(context, "百度人脸识别授权失败");
@@ -419,7 +437,7 @@ public class BdFaceSDK implements FaceSDK {
                     //活体检查通过，开始提取特征及比对搜索
                     final List<String> faceTokenList = new ArrayList<>();
                     byte[] featureBytes = new byte[512];
-                    for (FaceInfo faceInfo : faceInfos){
+                    for (FaceInfo faceInfo : faceInfos) {
                         float featureSize = faceFeature.feature(
                                 BDFaceSDKCommon.FeatureType.BDFACE_FEATURE_TYPE_LIVE_PHOTO,
                                 detectBean.rgbImage, faceInfo.landmarks, featureBytes);

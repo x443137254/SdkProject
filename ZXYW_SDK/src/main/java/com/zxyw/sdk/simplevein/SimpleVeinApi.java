@@ -153,7 +153,7 @@ public class SimpleVeinApi {
                     } catch (Exception e) {
                         e.printStackTrace();
                         if (readLoop) {
-                            getTemplate();
+                            getTemplate(true);
                         }
                         break;
                     }
@@ -173,7 +173,7 @@ public class SimpleVeinApi {
                                     }
                                     if (readLoop) {
                                         log("pars: read timeout! try again");
-                                        getTemplate();
+                                        getTemplate(true);
                                     }
                                     break;
                                 case VeinApi.XG_INPUT_FINGER://请放入手指
@@ -219,7 +219,7 @@ public class SimpleVeinApi {
                                     readCallback.readTemplate(Base64.getEncoder().encodeToString(template));
                                 }
                                 if (readLoop) {
-                                    getTemplate();
+                                    getTemplate(true);
                                 }
 //                                final String tempString = VeinApi.FVEncodeBase64(template, template.length);
 //                                final String result = VeinApi.FVVerifyUser(enrollString, tempString, 80);
