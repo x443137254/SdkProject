@@ -468,7 +468,7 @@ public class BdFaceSDK implements FaceSDK {
                         if (faceTokenList.size() > 0) {
                             recognizeCallback.recognizeSuccess(faceTokenList);
                         } else {
-                            recognizeCallback.recognizeFailed("人脸未注册");
+                            recognizeCallback.recognizeFailed("验证不通过");
                         }
                     }
                 } catch (Exception e) {
