@@ -707,11 +707,10 @@ public class Utils {
             File[] files = file.listFiles();
             if (files != null) {
                 for (File value : files) {
-                    deleteFiles(value);
+                    deleteFiles(value, time);
                 }
             }
-        }
-        if ((System.currentTimeMillis() - file.lastModified()) > time) {
+        }else if ((System.currentTimeMillis() - file.lastModified()) > time) {
             //noinspection ResultOfMethodCallIgnored
             file.delete();
         }
