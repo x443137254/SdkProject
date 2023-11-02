@@ -331,13 +331,15 @@ public class SimpleVeinApi {
     }
 
     private void send(byte[] data) {
+        log("start to send: " + bytes2string(data));
         if (outputStream != null) {
             try {
                 handler.postDelayed(retryRunnable, 1500);
                 outputStream.write(data);
                 lastSend = data;
-                log("send: " + bytes2string(data));
-            } catch (IOException ignore) {
+                log("send finish");
+            } catch (Exception e) {
+                log(e.toString());
             }
         }
     }
