@@ -23,4 +23,57 @@ public class ExampleUnitTest {
         final String decode = AESUtil.decode(cert);
         System.out.println(decode);
     }
+
+    @Test
+    public void arr() {
+        final int column = 15;//行
+        final int row = 16;//列
+        final int[][] array = new int[column][row];
+        int direction = 0;
+        int count = 1;
+        int _column = 0;//行
+        int _row = 0;//列
+        while (count <= column * row) {
+            switch (direction) {
+                case 0:
+                    array[_column][_row++] = count++;
+                    if (_row >= row || array[_column][_row] != 0) {
+                        direction++;
+                        _column++;
+                        _row--;
+                    }
+                    break;
+                case 1:
+                    array[_column++][_row] = count++;
+                    if (_column >= column || array[_column][_row] != 0) {
+                        direction++;
+                        _column--;
+                        _row--;
+                    }
+                    break;
+                case 2:
+                    array[_column][_row--] = count++;
+                    if (_row < 0 || array[_column][_row] != 0) {
+                        direction++;
+                        _column--;
+                        _row++;
+                    }
+                    break;
+                case 3:
+                    array[_column--][_row] = count++;
+                    if (_column < 0 || array[_column][_row] != 0) {
+                        direction = 0;
+                        _column++;
+                        _row++;
+                    }
+                    break;
+            }
+        }
+        for (int[] a : array) {
+            for (int b : a) {
+                System.out.printf("%4d", b);
+            }
+            System.out.println();
+        }
+    }
 }
