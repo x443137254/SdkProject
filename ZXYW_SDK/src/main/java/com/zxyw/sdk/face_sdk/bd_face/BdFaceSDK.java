@@ -70,10 +70,10 @@ public class BdFaceSDK implements FaceSDK {
     private FaceAuth faceAuth;
     private FaceDetect faceDetect;
     private FaceDetect faceDetectNir;
-    //    private FaceFeature faceFeature;
+    private FaceFeature faceFeature;
     private FaceLive faceLiveness;
     private FaceDarkEnhance faceDarkEnhance;
-    private final Map<String, FaceFeature> faceFeatureMap = new HashMap<>();
+//    private final Map<String, FaceFeature> faceFeatureMap = new HashMap<>();
 
     private FeatureBd db;
     private boolean init;
@@ -85,8 +85,8 @@ public class BdFaceSDK implements FaceSDK {
     private DetectFaceCallback detectFaceCallback;
     private RecognizeCallback recognizeCallback;
 
-    private List<String> groupList;
-    private String currentGroup;
+    //    private List<String> groupList;
+    private final String groupName = "defaultGroup";
     private boolean running;
     private InitFinishCallback initFinishCallback;
     private Thread featureThread;
@@ -99,15 +99,15 @@ public class BdFaceSDK implements FaceSDK {
 
     @Override
     public void init(final Context context, final List<String> groupList, final String url, InitFinishCallback callback) {
-        if (groupList != null) {
-            this.groupList = groupList;
-            if (this.groupList.isEmpty()) {
-                this.groupList.add("defaultGroup");
-            }
-        } else {
-            this.groupList = new ArrayList<>();
-            this.groupList.add("defaultGroup");
-        }
+//        if (groupList != null) {
+//            this.groupList = groupList;
+//            if (this.groupList.isEmpty()) {
+//                this.groupList.add("defaultGroup");
+//            }
+//        } else {
+//            this.groupList = new ArrayList<>();
+//            this.groupList.add("defaultGroup");
+//        }
         initFinishCallback = callback;
 //        String s = checkLostFile();
 //        MyLog.d(TAG, "missing file: " + s);
@@ -315,9 +315,10 @@ public class BdFaceSDK implements FaceSDK {
             IrBdFaceInstance.creatInstance();
             faceDetectNir = new FaceDetect(IrBdFaceInstance);
         }
-        for (String groupName : groupList) {
-            faceFeatureMap.put(groupName, new FaceFeature());
-        }
+//        for (String groupName : groupList) {
+//            faceFeatureMap.put(groupName, new FaceFeature());
+//        }
+        faceFeature = new FaceFeature();
 
         faceLiveness = new FaceLive();
         // 暗光檢測
@@ -446,7 +447,7 @@ public class BdFaceSDK implements FaceSDK {
                     //活体检查通过，开始提取特征及比对搜索
                     final List<String> faceTokenList = new ArrayList<>();
                     byte[] featureBytes = new byte[512];
-                    final FaceFeature faceFeature = faceFeatureMap.get(getCurrentGroup());
+//                    final FaceFeature faceFeature = faceFeatureMap.get(getCurrentGroup());
                     if (faceFeature != null) {
                         for (FaceInfo faceInfo : faceInfos) {
                             float featureSize = faceFeature.feature(
@@ -458,7 +459,7 @@ public class BdFaceSDK implements FaceSDK {
                                 if (featureResult != null && featureResult.size() > 0) {
                                     final Feature feature = featureResult.get(0);
                                     if (feature != null && feature.getScore() > SingleBaseConfig.getBaseConfig().getLiveThreshold()) {
-                                        Feature query = db.query(feature.getId(), getCurrentGroup());
+                                        Feature query = db.query(feature.getId(), groupName);
                                         if (query != null) {
                                             faceTokenList.add(String.valueOf(query.getId()));
                                             MyLog.d(TAG, "recognize success! query success! id=" + query.getId());
@@ -587,12 +588,13 @@ public class BdFaceSDK implements FaceSDK {
 
     private void initDatabases(Context context) {
         db = new FeatureBd(context);
-        for (String s : groupList) {
-            final FaceFeature faceFeature = faceFeatureMap.get(s);
-            if (faceFeature != null) {
-                faceFeature.featurePush(db.queryAll(s));
-            }
-        }
+//        for (String s : groupList) {
+//            final FaceFeature faceFeature = faceFeatureMap.get(s);
+//            if (faceFeature != null) {
+//                faceFeature.featurePush(db.queryAll(s));
+//            }
+//        }
+        faceFeature.featurePush(db.queryAll());
     }
 
     private void initModel(Context context) {
@@ -686,23 +688,35 @@ public class BdFaceSDK implements FaceSDK {
                 });
 
         // 初始化特征提取模型
-        for (String s : groupList) {
-            final FaceFeature faceFeature = faceFeatureMap.get(s);
-            if (faceFeature != null) {
-                faceFeature.initModel(context,
-                        GlobalSet.RECOGNIZE_IDPHOTO_MODEL,
-                        GlobalSet.RECOGNIZE_VIS_MODEL,
-                        GlobalSet.RECOGNIZE_NIR_MODEL,
-                        GlobalSet.RECOGNIZE_RGBD_MODEL,
-                        (code, response) -> {
-                            if (code == 0) {
-                                MyLog.d(TAG, "init Feature model success! groupName=" + s);
-                            } else {
-                                MyLog.d(TAG, "init Feature model failed! " + response);
-                            }
-                        });
-            }
-        }
+//        for (String s : groupList) {
+//            final FaceFeature faceFeature = faceFeatureMap.get(s);
+//            if (faceFeature != null) {
+//                faceFeature.initModel(context,
+//                        GlobalSet.RECOGNIZE_IDPHOTO_MODEL,
+//                        GlobalSet.RECOGNIZE_VIS_MODEL,
+//                        GlobalSet.RECOGNIZE_NIR_MODEL,
+//                        GlobalSet.RECOGNIZE_RGBD_MODEL,
+//                        (code, response) -> {
+//                            if (code == 0) {
+//                                MyLog.d(TAG, "init Feature model success! groupName=" + s);
+//                            } else {
+//                                MyLog.d(TAG, "init Feature model failed! " + response);
+//                            }
+//                        });
+//            }
+//        }
+        faceFeature.initModel(context,
+                GlobalSet.RECOGNIZE_IDPHOTO_MODEL,
+                GlobalSet.RECOGNIZE_VIS_MODEL,
+                GlobalSet.RECOGNIZE_NIR_MODEL,
+                GlobalSet.RECOGNIZE_RGBD_MODEL,
+                (code, response) -> {
+                    if (code == 0) {
+                        MyLog.d(TAG, "init Feature model success!");
+                    } else {
+                        MyLog.d(TAG, "init Feature model failed! ");
+                    }
+                });
     }
 
     private void initConfig() {
@@ -995,7 +1009,7 @@ public class BdFaceSDK implements FaceSDK {
             }
 
             final byte[] feature = new byte[512];
-            final FaceFeature faceFeature = faceFeatureMap.get(getCurrentGroup());
+//            final FaceFeature faceFeature = faceFeatureMap.get(getCurrentGroup());
             if (faceFeature != null) {
                 float featureSize = faceFeature.feature(
                         BDFaceSDKCommon.FeatureType.BDFACE_FEATURE_TYPE_LIVE_PHOTO,
@@ -1006,7 +1020,7 @@ public class BdFaceSDK implements FaceSDK {
                     if (featureResult != null && featureResult.size() > 0) {
                         Feature topFeature = featureResult.get(0);
                         if (topFeature != null && topFeature.getScore() > SingleBaseConfig.getBaseConfig().getLiveThreshold()) {
-                            Feature query = db.query(topFeature.getId(), getCurrentGroup());
+                            Feature query = db.query(topFeature.getId(), groupName);
                             if (query != null) {
                                 image.destory();
                                 MyLog.d(TAG, "人脸添加失败，照片已存在");
@@ -1017,7 +1031,7 @@ public class BdFaceSDK implements FaceSDK {
                             }
                         }
                     }
-                    int id = db.insert(feature, getCurrentGroup());
+                    int id = db.insert(feature, groupName);
                     faceFeature.featurePush(db.queryAll());
                     MyLog.d(TAG, "人脸添加成功！");
                     if (callback != null) {
@@ -1200,7 +1214,7 @@ public class BdFaceSDK implements FaceSDK {
 
     @Override
     public void setCurrentGroup(String group) {
-        this.currentGroup = group;
+//        this.currentGroup = group;
     }
 
     @Override
@@ -1208,13 +1222,13 @@ public class BdFaceSDK implements FaceSDK {
         db.delete(groupName);
     }
 
-    private String getCurrentGroup() {
-        if (currentGroup == null) {
-            currentGroup = groupList.get(0);
-        }
-        MyLog.d(TAG, "currentGroup: " + currentGroup);
-        return currentGroup;
-    }
+//    private String getCurrentGroup() {
+//        if (currentGroup == null) {
+//            currentGroup = groupList.get(0);
+//        }
+//        MyLog.d(TAG, "currentGroup: " + currentGroup);
+//        return currentGroup;
+//    }
 
     @Override
     public boolean capture(String savePath) {
@@ -1306,12 +1320,12 @@ public class BdFaceSDK implements FaceSDK {
     @Override
     public void release() {
         running = false;
-        for (String s : groupList) {
-            final FaceFeature faceFeature = faceFeatureMap.get(s);
-            if (faceFeature != null) {
-                faceFeature.uninitModel();
-            }
+//        for (String s : groupList) {
+//            final FaceFeature faceFeature = faceFeatureMap.get(s);
+        if (faceFeature != null) {
+            faceFeature.uninitModel();
         }
+//        }
         if (faceDetect != null) {
             faceDetect.uninitModel();
         }
@@ -1440,7 +1454,7 @@ public class BdFaceSDK implements FaceSDK {
                     if (featureResult != null && featureResult.size() > 0) {
                         Feature topFeature = featureResult.get(0);
                         if (topFeature != null && topFeature.getScore() > SingleBaseConfig.getBaseConfig().getLiveThreshold()) {
-                            Feature query = db.query(topFeature.getId(), getCurrentGroup());
+                            Feature query = db.query(topFeature.getId(), groupName);
                             if (query != null) {
                                 return String.valueOf(query.getId());
                             }
@@ -1470,7 +1484,7 @@ public class BdFaceSDK implements FaceSDK {
         if (db == null) {
             return new ArrayList<>();
         }
-        final List<Feature> list = db.queryAll(getCurrentGroup());
+        final List<Feature> list = db.queryAll();
         if (list == null || list.size() == 0) {
             return new ArrayList<>();
         }
