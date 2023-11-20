@@ -122,6 +122,18 @@ public class FeatureBd extends SQLiteOpenHelper {
         return feature;
     }
 
+    public Feature query(int id) {
+        String sql = "SELECT * FROM " + tableName + " WHERE id=" + id;
+        Cursor cursor = getReadableDatabase().rawQuery(sql, null);
+        Feature feature = null;
+        if (cursor.moveToNext()) {
+            feature = new Feature();
+            fillValues(cursor, feature);
+        }
+        cursor.close();
+        return feature;
+    }
+
     private void fillValues(Cursor cursor, Feature feature) {
         feature.setId(cursor.getInt(cursor.getColumnIndex("id")));
         feature.setGroupId(cursor.getString(cursor.getColumnIndex("groupId")));

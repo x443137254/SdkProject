@@ -459,7 +459,7 @@ public class BdFaceSDK implements FaceSDK {
                                 if (featureResult != null && featureResult.size() > 0) {
                                     final Feature feature = featureResult.get(0);
                                     if (feature != null && feature.getScore() > SingleBaseConfig.getBaseConfig().getLiveThreshold()) {
-                                        Feature query = db.query(feature.getId(), groupName);
+                                        Feature query = db.query(feature.getId());
                                         if (query != null) {
                                             faceTokenList.add(String.valueOf(query.getId()));
                                             MyLog.d(TAG, "recognize success! query success! id=" + query.getId());
@@ -1020,7 +1020,7 @@ public class BdFaceSDK implements FaceSDK {
                     if (featureResult != null && featureResult.size() > 0) {
                         Feature topFeature = featureResult.get(0);
                         if (topFeature != null && topFeature.getScore() > SingleBaseConfig.getBaseConfig().getLiveThreshold()) {
-                            Feature query = db.query(topFeature.getId(), groupName);
+                            Feature query = db.query(topFeature.getId());
                             if (query != null) {
                                 image.destory();
                                 MyLog.d(TAG, "人脸添加失败，照片已存在");
