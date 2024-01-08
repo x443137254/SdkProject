@@ -106,7 +106,7 @@ public class SimpleVeinApi {
                 } catch (IOException e) {
                     break;
                 }
-                if (len > 1) {//有时候会收到单个0字节需要跳过
+                if (len > 1 || buff[0] != 0) {//有时候会收到单个0字节需要跳过
                     final byte[] receiveData = Arrays.copyOf(buff, len);
                     log("receive: " + bytes2string(receiveData));
                     handler.removeCallbacks(retryRunnable);
@@ -115,7 +115,6 @@ public class SimpleVeinApi {
                         pars(buff, len);
                     } catch (Exception e) {
                         e.printStackTrace();
-
                     }
                 }
             }
@@ -162,7 +161,7 @@ public class SimpleVeinApi {
                             switch (packet.data[0]) {
                                 case VeinApi.XG_ERR_SUCCESS://读取成功
                                     log("pars: read success, get data");
-                                    template = new byte[(packet.data[1] & 0xff) + ((packet.data[2] & 0xff) << 8)];
+                                    template = new byte[(packet.data[1] & 0xff) + ((packet.data[2] & 0xff) << 8) + 2];
                                     offset = 0;
                                     readCmd = (byte) VeinApi.XG_CMD_GET_CHARA;
                                     readTemplate();
@@ -190,33 +189,33 @@ public class SimpleVeinApi {
                 }
                 break;
             case VeinApi.XG_CMD_READ_DATA://读取数据
+                System.arraycopy(data, 0, template, offset, len);
                 currentCount += len;
-                if (currentCount <= totalCount) {
-                    System.arraycopy(data, 0, template, offset, len);
-                    offset += len;
-                } else {
-                    System.arraycopy(data, 0, template, offset, len - 2);
-                    offset += len - 2;
+                offset += len;
+                if (currentCount >= totalCount + 2) {
+//                } else {
+//                    System.arraycopy(data, 0, template, offset, len >= 2 ? len - 2 : len);
+                    offset -= 2;
                     //校验和
                     int sum = 0;
                     for (int i = offset - totalCount; i < offset; i++) {
                         sum += template[i] & 0xFF;
                     }
                     if ((((data[len - 1] & 0xFF) << 8) + (data[len - 2] & 0xFF)) == (sum & 0xFFFF)) {
-                        if (offset < template.length) {
+                        if (offset < template.length - 2) {
                             readTemplate();
                         } else {
                             if (readCmd == VeinApi.XG_CMD_READ_ENROLL) {
                                 if (enrollCallback != null) {
 //                                    enrollCallback.enrollFinish(true, VeinApi.FVEncodeBase64(template, template.length));
-                                    enrollCallback.enrollFinish(true, Base64.getEncoder().encodeToString(template));
+                                    enrollCallback.enrollFinish(true, Base64.getEncoder().encodeToString(Arrays.copyOf(template, template.length - 2)));
                                 }
 //                                enrollString = VeinApi.FVEncodeBase64(template, template.length);
                             } else {
                                 if (readCallback != null) {
-                                    final long t = System.currentTimeMillis();
+//                                    final long t = System.currentTimeMillis();
 //                                    readCallback.readTemplate(VeinApi.FVEncodeBase64(template, template.length));
-                                    readCallback.readTemplate(Base64.getEncoder().encodeToString(template));
+                                    readCallback.readTemplate(Base64.getEncoder().encodeToString(Arrays.copyOf(template, template.length - 2)));
                                 }
                                 if (readLoop) {
                                     getTemplate(true);
@@ -231,6 +230,9 @@ public class SimpleVeinApi {
                         currentCount = 0;
                         offset -= totalCount;
                         handler.post(retryRunnable);
+                        if (readCallback != null) {
+                            readCallback.readTemplate(null);
+                        }
                     }
                 }
                 break;
@@ -300,7 +302,7 @@ public class SimpleVeinApi {
                                     ((packet.data[2] & 0xff) << 8) +
                                     ((packet.data[3] & 0xff) << 16) +
                                     ((packet.data[4] & 0xff) << 24);
-                            template = new byte[size];
+                            template = new byte[size + 2];
                             offset = 0;
                             readCmd = (byte) VeinApi.XG_CMD_READ_ENROLL;
                             readTemplate();
@@ -314,7 +316,7 @@ public class SimpleVeinApi {
     }
 
     private void readTemplate() {
-        totalCount = Math.min(template.length - offset, 510);
+        totalCount = Math.min(template.length - 2 - offset, 510);
         final byte[] data = new byte[9];
         data[0] = readCmd;
         data[1] = (byte) (offset & 0xff);
