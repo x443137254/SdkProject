@@ -40,6 +40,7 @@ public class FaceView extends View {
     }
 
     public void addRect(RectF rect) {
+        if (rect == null) return;
         Rect buffer = new Rect();
         buffer.left = (int) rect.left;
         buffer.top = (int) rect.top;
@@ -56,8 +57,12 @@ public class FaceView extends View {
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         for (int i = 0; i < rect.size(); i++) {
-            Rect r = rect.get(i);
-            canvas.drawRect(r, paint);
+            try {
+                Rect r = rect.get(i);
+                canvas.drawRect(r, paint);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
         this.clear();
     }

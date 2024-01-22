@@ -10,6 +10,7 @@ public final class VideoTalkConfig {
     private static int rotation = 90;
     private static String serverIp = "192.168.1.20";
     private static ResponseType responseType = ResponseType.PICKUP_AUTO;
+    private static boolean showLog;
 
     public enum ResponseType{
         PICKUP_AUTO,PICKUP_AUTO_DELAY,PICKUP_HAND
@@ -73,5 +74,13 @@ public final class VideoTalkConfig {
 
     public static void setResponseType(ResponseType responseType) {
         VideoTalkConfig.responseType = responseType;
+    }
+
+    public static boolean isShowLog() {
+        return showLog;
+    }
+
+    public static void setShowLog(boolean showLog) {
+        VideoTalkConfig.showLog = showLog;
     }
 }

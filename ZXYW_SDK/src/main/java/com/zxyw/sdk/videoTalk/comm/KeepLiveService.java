@@ -71,8 +71,9 @@ public class KeepLiveService extends Service implements IEventListener {
             customConfig.setLiveVdnServerUrl(MLOC.getLiveVdnServerUrl());
             customConfig.setImServerUrl(MLOC.getImServerUrl());
             customConfig.setVoipServerUrl(MLOC.getVoipServerUrl());
+            customConfig.setDefConfigCamera2Enable(false);
             customConfig.setDefConfigCameraMirror(VideoTalkConfig.getCameraMirror());
-            customConfig.setLogEnable(true); //关闭SDK调试日志
+            customConfig.setLogEnable(VideoTalkConfig.isShowLog()); //关闭SDK调试日志
             customConfig.setDefConfigBigVideoConfig(VideoTalkConfig.getFPS(), VideoTalkConfig.getBitrate());
 //            customConfig.setDefConfigSmallVideoConfig(3,50);
 //            customConfig.setDefConfigOpenGLESEnable(false);
