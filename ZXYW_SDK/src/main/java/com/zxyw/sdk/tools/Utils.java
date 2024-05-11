@@ -1,5 +1,7 @@
 package com.zxyw.sdk.tools;
 
+import static android.content.Context.ALARM_SERVICE;
+
 import android.app.Activity;
 import android.app.AlarmManager;
 import android.content.Context;
@@ -53,8 +55,6 @@ import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-import static android.content.Context.ALARM_SERVICE;
-
 public class Utils {
 
     /**
@@ -103,13 +103,14 @@ public class Utils {
     public static boolean runRootCommand(String command) {
         Process process = null;
         DataOutputStream os = null;
+        int result;
         try {
             process = Runtime.getRuntime().exec("su");
             os = new DataOutputStream(process.getOutputStream());
             os.writeBytes(command + "\n");
             os.writeBytes("exit\n");
             os.flush();
-            process.waitFor();
+            result = process.waitFor();
         } catch (Exception e) {
             return false;
         } finally {
@@ -123,7 +124,7 @@ public class Utils {
             } catch (Exception ignore) {
             }
         }
-        return true;
+        return result == 0;
     }
 
     /**
@@ -710,7 +711,7 @@ public class Utils {
                     deleteFiles(value, time);
                 }
             }
-        }else if ((System.currentTimeMillis() - file.lastModified()) > time) {
+        } else if ((System.currentTimeMillis() - file.lastModified()) > time) {
             //noinspection ResultOfMethodCallIgnored
             file.delete();
         }
@@ -1009,10 +1010,11 @@ public class Utils {
 
     /**
      * 是否是屏保状态
+     *
      * @param context 上下文
      * @return true 息屏；false 亮屏
      */
-    public static boolean isScreenOff(Context context){
-        return !((PowerManager)context.getSystemService(Context.POWER_SERVICE)).isInteractive();
+    public static boolean isScreenOff(Context context) {
+        return !((PowerManager) context.getSystemService(Context.POWER_SERVICE)).isInteractive();
     }
 }

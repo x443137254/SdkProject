@@ -18,6 +18,8 @@ package android_serialport_api;
 
 import android.util.Log;
 
+import com.zxyw.sdk.tools.Utils;
+
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileDescriptor;
@@ -44,20 +46,25 @@ public class SerialPort {
 
 		/* Check access permission */
 		if (!device.canRead() || !device.canWrite()) {
-			try {
-				/* Missing read/write permission, trying to chmod the file */
-				Process su;
-				su = Runtime.getRuntime().exec("su");
-				String cmd = "chmod 666 " + device.getAbsolutePath() + "\n"
-						+ "exit\n";
-				su.getOutputStream().write(cmd.getBytes());
-//				if ((su.waitFor() != 0) || !device.canRead()
-//						|| !device.canWrite()) {
-//					throw new SecurityException();
-//				}
-			} catch (Exception e) {
-				e.printStackTrace();
-				throw new SecurityException();
+//			try {
+//				/* Missing read/write permission, trying to chmod the file */
+//				Process su;
+//				su = Runtime.getRuntime().exec("su");
+//				String cmd = "chmod 666 " + device.getAbsolutePath() + "\n"
+//						+ "exit\n";
+//				su.getOutputStream().write(cmd.getBytes());
+////				if ((su.waitFor() != 0) || !device.canRead()
+////						|| !device.canWrite()) {
+////					throw new SecurityException();
+////				}
+//			} catch (Exception e) {
+//				e.printStackTrace();
+//				throw new SecurityException();
+//			}
+			if (!Utils.runRootCommand("chmod 666 " + device.getAbsolutePath())){
+				Log.d(TAG, "文件权限修改失败");
+				mFd = null;
+				return;
 			}
 		}
 
