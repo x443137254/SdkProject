@@ -1,5 +1,4 @@
 Step 1. Add the JitPack repository to your build file
-
 Add it in your root build.gradle at the end of repositories:
 
 	dependencyResolutionManagement {
@@ -13,5 +12,5 @@ Add it in your root build.gradle at the end of repositories:
 Step 2. Add the dependency
 
 	dependencies {
-	        implementation 'com.github.x443137254:SdkProject:v3.16'
+	        implementation 'com.github.x443137254:SdkProject:v3.17'
 	}
