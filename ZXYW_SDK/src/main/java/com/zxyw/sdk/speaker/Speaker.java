@@ -52,7 +52,8 @@ public class Speaker {
     private int wakeupScore = 1400;
     private Thread recognizeThread;
     private Thread wakeupThread;
-    private String lastMessage;
+    private String lastTalk;
+    private String lastOffer;
     private boolean manVoice;//是否使用男音
     private int speed = 60;//语速
     private int tone = 60;//音调
@@ -66,8 +67,8 @@ public class Speaker {
         speakRunnable = () -> {
             if (mTts != null && !queue.isEmpty()) {
                 talking = true;
-                lastMessage = queue.poll();
-                mTts.startSpeaking(lastMessage, synthesizerListener);
+                lastTalk = queue.poll();
+                mTts.startSpeaking(lastTalk, synthesizerListener);
             }
         };
     }
@@ -349,6 +350,7 @@ public class Speaker {
     public void speakNow(String content) {
         queue.clear();
         queue.add(content);
+        lastOffer = content;
         handler.post(speakRunnable);
     }
 
@@ -356,10 +358,12 @@ public class Speaker {
         if (mTts == null || TextUtils.isEmpty(content)) return;
         if (talking) {
 //            queue.clear();
-            if (content.equals(lastMessage)) return;
+            if (content.equals(lastTalk) || content.equals(lastOffer)) return;
             queue.add(content);
+            lastOffer = content;
         } else {
             queue.add(content);
+            lastOffer = content;
             handler.post(speakRunnable);
             if (statusChangeListener != null) {
                 statusChangeListener.speakerStart();
