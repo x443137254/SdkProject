@@ -99,31 +99,34 @@ public class BdFaceSDK implements FaceSDK {
 
     @Override
     public void init(final Context context, final List<String> groupList, final String url, InitFinishCallback callback) {
-//        if (groupList != null) {
-//            this.groupList = groupList;
-//            if (this.groupList.isEmpty()) {
-//                this.groupList.add("defaultGroup");
-//            }
-//        } else {
-//            this.groupList = new ArrayList<>();
-//            this.groupList.add("defaultGroup");
-//        }
         initFinishCallback = callback;
-//        String s = checkLostFile();
-//        MyLog.d(TAG, "missing file: " + s);
-//        if (s != null && !s.equals("")) {
-//            if (!replaceFile(context, new File(s))) return;
-//        }
         faceAuth = new FaceAuth();
         faceAuth.setActiveLog(BDFaceSDKCommon.BDFaceLogInfo.BDFACE_LOG_ERROR_MESSAGE, 0);
         faceAuth.setCoreConfigure(BDFaceSDKCommon.BDFaceCoreRunMode.BDFACE_LITE_POWER_NO_BIND, 2);
 
-        new Timer().schedule(new TimerTask() {
-            @Override
-            public void run() {
-                getCertificate(context, url, null);
+        faceAuth.initLicenseOffLine(context, (code, response) -> {
+            if (code == 0) {
+                onAuthSuccess(context);
+            } else {
+                new Timer().schedule(new TimerTask() {
+                    @Override
+                    public void run() {
+                        getCertificate(context, url, null);
+                    }
+                }, 3000);
             }
-        }, 3000);
+        });
+    }
+
+    public void authOffLine(Context context, AuthCallback callback){
+        faceAuth.initLicenseOffLine(context, (code, response) -> {
+            if (code == 0) {
+                if (callback != null) callback.authResult(true);
+                onAuthSuccess(context);
+            } else {
+                if (callback != null) callback.authResult(false);
+            }
+        });
     }
 
     private void toast(Context context, String s) {
@@ -223,6 +226,9 @@ public class BdFaceSDK implements FaceSDK {
                     } else {
                         final String s = "获取百度人脸识别激活码失败！" + json.optString("msg");
                         MyLog.e(TAG, s);
+                        if (callback != null) {
+                            callback.authResult(false);
+                        }
                         if (initFinishCallback != null) {
                             initFinishCallback.initFinish(false);
                             initFinishCallback = null;
@@ -234,6 +240,9 @@ public class BdFaceSDK implements FaceSDK {
         } else {
             final String s = "获取百度人脸识别激活码失败！未设置自动激活url";
             MyLog.e(TAG, s);
+            if (callback != null) {
+                callback.authResult(false);
+            }
             if (initFinishCallback != null) {
                 initFinishCallback.initFinish(false);
                 initFinishCallback = null;
