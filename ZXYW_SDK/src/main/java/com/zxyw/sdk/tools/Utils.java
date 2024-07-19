@@ -262,7 +262,7 @@ public class Utils {
             Field gatewayField = staticIpConfigClass.getDeclaredField("gateway");
             gatewayField.set(staticIpConfigInstance, gatewayAddr);
 
-            InetAddress dnsAddr = (InetAddress) numericToInetAddress.invoke(null, "8.8.8.8");
+            InetAddress dnsAddr = (InetAddress) numericToInetAddress.invoke(null, "223.5.5.5");
 
             Field dnsServers = staticIpConfigClass.getDeclaredField("dnsServers");
             ArrayList<InetAddress> dnsList = (ArrayList<InetAddress>) dnsServers.get(staticIpConfigInstance);
