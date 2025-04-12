@@ -26,9 +26,15 @@
         android:hardwareAccelerated="true"
         android:largeHeap="true"
         android:supportsRtl="true">
-        <activity android:name=".videoTalk.voip.VoipRingingActivity" />
-        <activity android:name=".videoTalk.voip.VoipActivity" />
+        <activity
+            android:name=".videoTalk.voip.VoipRingingActivity"
+            android:exported="false" />
+        <activity
+            android:name=".videoTalk.voip.VoipActivity"
+            android:exported="false" />
 
-        <service android:name=".videoTalk.comm.KeepLiveService" />
+        <service
+            android:name=".videoTalk.comm.KeepLiveService"
+            android:exported="false" />
     </application>
 </manifest>
