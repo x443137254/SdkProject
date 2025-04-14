@@ -1328,6 +1328,7 @@ public class BdFaceSDK implements FaceSDK {
 
     @Override
     public void release() {
+        init = false;
         running = false;
 //        for (String s : groupList) {
 //            final FaceFeature faceFeature = faceFeatureMap.get(s);
@@ -1357,7 +1358,7 @@ public class BdFaceSDK implements FaceSDK {
 
     @Override
     public boolean isActive() {
-        return init;
+        return faceFeature != null;
     }
 
     @Override
